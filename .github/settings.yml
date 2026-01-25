@@ -19,6 +19,11 @@ repository:
   enable_automated_security_fixes: true
   enable_vulnerability_alerts: true
 
+  # Security and analysis settings
+  security_and_analysis:
+    private_vulnerability_reporting:
+      status: enabled
+
 # Labels
 labels:
   # Issue Types
