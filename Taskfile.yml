@@ -1,0 +1,50 @@
+version: '3'
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  check:
+    desc: Run all pre-commit checks
+    cmds:
+      - task: spellcheck
+      - task: dco-check
+      - task: license-check
+
+  spellcheck:
+    desc: Run spell checker (mirrors CI)
+    cmds:
+      - typos --config .typos.toml
+
+  dco-check:
+    desc: Check commits have DCO sign-off
+    cmds:
+      - |
+        for commit in $(git log --format=%H origin/main..HEAD 2>/dev/null || git log --format=%H -5); do
+          if ! git log -1 --format=%B $commit | grep -q "^Signed-off-by:"; then
+            echo "ERROR: Commit $commit missing DCO sign-off"
+            echo "Fix with: git commit --amend -s"
+            exit 1
+          fi
+        done
+        echo "All commits have DCO sign-off"
+
+  license-check:
+    desc: Check Go dependency licenses (mirrors CI)
+    cmds:
+      - go-licenses check ./... --disallowed_types=forbidden,restricted,reciprocal,permissive,unknown --ignore=$(go list -m)
+    status:
+      - '! test -f go.mod'
+
+  setup:
+    desc: Install tools and git hooks
+    deps: [install-tools]
+    cmds:
+      - lefthook install
+
+  install-tools:
+    desc: Install required CLI tools
+    cmds:
+      - echo "Installing typos..." && brew install typos-cli || cargo install typos-cli
+      - command -v lefthook || brew install lefthook || go install github.com/evilmartians/lefthook@latest
+      - test -f go.mod && go install github.com/google/go-licenses@latest || true

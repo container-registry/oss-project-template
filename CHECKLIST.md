@@ -233,6 +233,79 @@ After setup, verify everything works:
 
 ---
 
+## 12. Local Development Setup (Optional)
+
+Run CI checks locally before committing using [Task](https://taskfile.dev/) and [lefthook](https://github.com/evilmartians/lefthook).
+
+### Installation
+
+```bash
+# Install Task (task runner)
+brew install go-task/tap/go-task
+
+# Install lefthook (git hooks manager)
+brew install lefthook
+
+# Or with Go
+go install github.com/go-task/task/v3/cmd/task@latest
+go install github.com/evilmartians/lefthook@latest
+```
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `task check` | Run all pre-commit checks |
+| `task spellcheck` | Run spell checker (mirrors CI) |
+| `task dco-check` | Check commits have DCO sign-off |
+| `task license-check` | Check Go dependency licenses |
+| `task setup` | Install tools and git hooks |
+
+### Setup
+
+```bash
+# Install tools and git hooks
+task setup
+
+# Verify hooks are installed
+lefthook list
+```
+
+### How It Works
+
+- **Taskfile.yml** - Defines explicit commands you can run manually
+- **lefthook.yml** - Configures automatic git hooks (pre-commit, commit-msg)
+
+Hooks run automatically:
+- **pre-commit**: Spell check on staged `.md`, `.yml`, `.yaml` files
+- **commit-msg**: Verify DCO sign-off is present
+
+### Customization for Other Languages
+
+For non-Go projects, replace the `license-check` task in `Taskfile.yml`:
+
+**Python:**
+```yaml
+license-check:
+  desc: Check Python dependency licenses
+  cmds:
+    - pip-licenses --fail-on="GPL;LGPL"
+  status:
+    - '! test -f requirements.txt'
+```
+
+**Node.js:**
+```yaml
+license-check:
+  desc: Check npm dependency licenses
+  cmds:
+    - npx license-checker --failOn "GPL;LGPL"
+  status:
+    - '! test -f package.json'
+```
+
+---
+
 ## Quick Start Commands
 
 ```bash

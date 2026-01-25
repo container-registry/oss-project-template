@@ -24,6 +24,34 @@ This template is programming language agnostic. A minimal Go application is incl
 4. Replace placeholders with your project values
 5. Follow the **[CHECKLIST.md](CHECKLIST.md)** for a complete adoption guide
 
+## Local Development
+
+Run CI checks locally before committing:
+
+```bash
+# One-time setup
+task setup
+
+# Run all checks
+task check
+
+# Or let hooks run automatically
+git commit -s -m "your message"
+```
+
+### Running GitHub Actions Locally (Optional)
+
+For workflows that can run locally, use [act](https://github.com/nektos/act):
+
+```bash
+brew install act
+act -l                    # List workflows
+act -j spellcheck         # Run specific job
+act -j license-check
+```
+
+Note: Only `spellcheck`, `dco`, and `license-check` work locally. Other workflows require GitHub's API.
+
 ## Placeholders
 
 Replace these placeholders in all files:
