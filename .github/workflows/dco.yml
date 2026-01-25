@@ -1,0 +1,17 @@
+name: DCO
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    steps:
+      - name: DCO Check
+        uses: tisonkun/actions-dco@v1.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

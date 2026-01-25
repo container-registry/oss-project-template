@@ -1,0 +1,72 @@
+name: Sync Changelog
+
+# Syncs GitHub Release notes to CHANGELOG.md when a release is published
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Update CHANGELOG.md
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const release = context.payload.release;
+            const tag = release.tag_name;
+            const date = release.published_at.split('T')[0];
+            const body = release.body || 'No release notes provided.';
+            const url = release.html_url;
+
+            // Format the new entry
+            const newEntry = `## [${tag}](${url}) (${date})
+
+${body}
+
+`;
+
+            // Read current changelog
+            const changelogPath = 'CHANGELOG.md';
+            let changelog = fs.readFileSync(changelogPath, 'utf8');
+
+            // Find the marker to insert after (the --- separator)
+            const marker = '---\n';
+            const markerIndex = changelog.indexOf(marker);
+
+            if (markerIndex === -1) {
+              core.setFailed('Could not find --- marker in CHANGELOG.md');
+              return;
+            }
+
+            // Insert new entry after the marker
+            const insertPosition = markerIndex + marker.length;
+            changelog =
+              changelog.slice(0, insertPosition) +
+              '\n' + newEntry +
+              changelog.slice(insertPosition);
+
+            // Write updated changelog
+            fs.writeFileSync(changelogPath, changelog);
+
+            console.log(`Added changelog entry for ${tag}`);
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "docs: update CHANGELOG.md for ${{ github.event.release.tag_name }}"
+          git push

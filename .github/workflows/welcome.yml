@@ -1,0 +1,38 @@
+name: Welcome
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Thanks for opening your first issue! 🎉
+
+            A maintainer will review this soon. In the meantime:
+            - Check our [documentation]({{DOCS_URL}}) for common solutions
+            - Search [existing issues](https://github.com/${{ github.repository }}/issues) for similar reports
+
+            If this is a question rather than a bug report, consider posting in [GitHub Discussions](https://github.com/${{ github.repository }}/discussions) instead.
+
+          pr-message: |
+            Thanks for your first pull request! 🎉
+
+            A maintainer will review this soon. Please ensure:
+            - [ ] Tests pass locally
+            - [ ] Code follows our style guidelines
+            - [ ] Commits are signed off (DCO)
+            - [ ] PR title follows [Conventional Commits](https://www.conventionalcommits.org/)
+
+            Check out our [Contributing Guide](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md) for more details.
