@@ -37,7 +37,7 @@ jobs:
         run: |
           go-licenses check ./... \
             --disallowed_types=forbidden,restricted,reciprocal,permissive,unknown \
-            --ignore={{MODULE_PATH}}
+            --ignore=github.com/container-registry/oss-project-template
 
       - name: Generate license report
         if: always()

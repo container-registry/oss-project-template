@@ -96,6 +96,7 @@ find . -type f \( -name "*.yml" -o -name "*.md" \) -exec sed -i '' \
 
 ### `.github/workflows/license-check.yml`
 
+- [ ] Update `--ignore=` to your Go module path (must match `go.mod`)
 - [ ] Review allowed/denied licenses for your project
 - [ ] Remove if not a Go project
 
@@ -170,6 +171,11 @@ find . -type f \( -name "*.yml" -o -name "*.md" \) -exec sed -i '' \
 
 - [ ] **Delete this template README entirely**
 - [ ] Create your own project README
+
+### `LICENSE`
+
+- [ ] Update copyright year and holder
+- [ ] Change license type if not using Apache 2.0
 
 ---
 
