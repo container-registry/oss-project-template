@@ -130,16 +130,20 @@ jobs:
             echo "Exporting current GitHub settings..."
             ./scripts/export-settings.sh > /tmp/current.yml
 
-            # Normalize both files for comparison (sort keys, consistent formatting)
-            yq -P 'sort_keys(..)' "$SETTINGS" > /tmp/expected.yml
-            yq -P 'sort_keys(..)' /tmp/current.yml > /tmp/actual.yml
+            # Normalize both files for comparison:
+            # - Remove comments (lines starting with #)
+            # - Remove null values (permission-limited fields)
+            # - Convert to JSON for consistent key handling (avoids yq issues with spaces in keys)
+            # - Sort keys
+            yq 'del(.. | select(. == null))' "$SETTINGS" | yq -o=json '.' | jq -S '.' > /tmp/expected.json
+            yq 'del(.. | select(. == null))' /tmp/current.yml | yq -o=json '.' | jq -S '.' > /tmp/actual.json
 
-            if diff -q /tmp/expected.yml /tmp/actual.yml >/dev/null 2>&1; then
+            if diff -q /tmp/expected.json /tmp/actual.json >/dev/null 2>&1; then
               echo "✓ No drift detected - settings.yml matches GitHub"
               return 0
             else
               echo "::error::Drift detected! settings.yml differs from GitHub state:"
-              diff -u /tmp/expected.yml /tmp/actual.yml || true
+              diff -u /tmp/expected.json /tmp/actual.json || true
               return 1
             fi
           }

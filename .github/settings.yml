@@ -119,9 +119,8 @@ security:
 
 code_scanning:
   state: not-configured
-  # state: configured
-  # query_suite: default  # default, extended
-  # languages: [actions, go]
+  query_suite: default  # default, extended
+  languages: [actions, go]
 
 # rulesets:
 #   require-pr:
