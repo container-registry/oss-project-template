@@ -21,7 +21,7 @@ repository:
   has_wiki: false
   has_downloads: true
   has_discussions: false
-  is_template: false
+  is_template: true
   default_branch: main
   allow_forking: true
   allow_squash_merge: true
