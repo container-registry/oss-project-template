@@ -28,7 +28,7 @@ repository:
   allow_rebase_merge: true
   delete_branch_on_merge: true
   allow_auto_merge: false
-  allow_update_branch: true
+  allow_update_branch: false
   squash_merge_commit_title: COMMIT_OR_PR_TITLE
   squash_merge_commit_message: COMMIT_MESSAGES
   merge_commit_title: MERGE_MESSAGE
@@ -107,7 +107,6 @@ labels:
   wip:
     color: fef2c0
     description: Work in progress
-
 security:
   secret_scanning:
     status: disabled
@@ -115,41 +114,9 @@ security:
     status: disabled
   dependabot_security_updates:
     status: enabled
-
 code_scanning:
   state: not-configured
-  # state: configured
-  # query_suite: default  # default, extended
-  # languages: [actions, go]
-
-# rulesets:
-#   require-pr:
-#     target: branch
-#     enforcement: active
-#     bypass_actors: []
-#     conditions:
-#       ref_name:
-#         include: [refs/heads/main]
-#         exclude: []
-#     rules:
-#       - type: pull_request
-#         parameters:
-#           required_approving_review_count: 1
-#           dismiss_stale_reviews_on_push: true
-#           require_code_owner_review: false
-
-# branches:
-#   main:
-#     protection:
-#       required_status_checks:
-#         strict: true
-#         contexts: [ci, DCO]
-#       enforce_admins: false
-#       required_pull_request_reviews:
-#         required_approving_review_count: 1
-#         dismiss_stale_reviews: true
-#         require_code_owner_reviews: false
-#       restrictions: null
-#       required_linear_history: false
-#       allow_force_pushes: false
-#       allow_deletions: false
+  query_suite: default
+  languages:
+    - actions
+    - go

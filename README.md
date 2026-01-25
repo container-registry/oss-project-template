@@ -90,14 +90,20 @@ Replace these placeholders in all files:
 | `dependency-review.yml` | Review dependency changes in PRs |
 | `scorecard.yml` | OpenSSF Scorecard integration |
 | `changelog-sync.yml` | Sync GitHub Releases to CHANGELOG.md |
+| `apply-settings.yml` | Apply repository settings from `settings.yml` |
 
 ### Configuration Files
 | File | Purpose |
 |------|---------|
 | `.github/labeler.yml` | File pattern to label mapping |
 | `.github/release-drafter.yml` | Release notes template |
-| `.github/settings.yml` | Repository settings (Probot) |
+| `.github/settings.yml` | Repository settings (auto-applied via workflow) |
 | `.typos.toml` | Spell checker configuration |
+
+### Scripts
+| File | Purpose |
+|------|---------|
+| `scripts/export-settings.sh` | Export current repo settings to YAML for diffing |
 
 ### Community Files
 | File | Purpose |
@@ -133,7 +139,6 @@ myterm = "myterm"
 
 Some workflows require:
 - **DCO**: Contributors must sign off commits
-- **Probot Settings**: Install the [Settings app](https://probot.github.io/apps/settings/) for `settings.yml`
 - **Go**: For license-check workflow (Go projects only)
 
 ## License

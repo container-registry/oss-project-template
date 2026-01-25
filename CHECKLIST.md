@@ -34,13 +34,19 @@ find . -type f \( -name "*.yml" -o -name "*.md" \) -exec sed -i '' \
 
 ### `.github/settings.yml`
 
-- [ ] Update `name` to your repository name
+This file maps 1:1 to GitHub REST API and is auto-applied on push to main.
+
 - [ ] Update `description` to your project description
-- [ ] Set `homepage` URL
-- [ ] Set `default_branch` (usually `main`)
+- [ ] Set `homepage` URL (or leave empty)
 - [ ] Review merge strategies (`allow_squash_merge`, etc.)
-- [ ] Uncomment and configure branch protection rules
+- [ ] Uncomment and configure branch protection rules if needed
 - [ ] Add project-specific component labels
+
+**Export current settings:**
+```bash
+./scripts/export-settings.sh > current.yml
+diff .github/settings.yml current.yml
+```
 
 ---
 
@@ -115,6 +121,10 @@ find . -type f \( -name "*.yml" -o -name "*.md" \) -exec sed -i '' \
 ### `.github/workflows/release-drafter.yml`
 
 - [ ] No changes needed (uses `release-drafter.yml` config)
+
+### `.github/workflows/apply-settings.yml`
+
+- [ ] No changes needed (applies `settings.yml` automatically on push to main)
 
 ---
 
@@ -260,6 +270,7 @@ go install github.com/evilmartians/lefthook@latest
 | `task dco-check` | Check commits have DCO sign-off |
 | `task license-check` | Check Go dependency licenses |
 | `task setup` | Install tools and git hooks |
+| `./scripts/export-settings.sh` | Export current repo settings to YAML |
 
 ### Setup
 

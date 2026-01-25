@@ -1,0 +1,90 @@
+name: Apply Repository Settings
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/settings.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == github.event.repository.owner.login
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Apply settings
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SETTINGS: .github/settings.yml
+        run: |
+          set -euo pipefail
+
+          apply_labels() {
+            existing=$(gh api "/repos/$REPO/labels" --paginate -q '.[].name')
+            for name in $(yq -r '.labels | keys[]' "$SETTINGS"); do
+              body=$(yq -o=json ".labels.\"$name\"" "$SETTINGS" | jq --arg name "$name" '. + {name: $name}')
+              if echo "$existing" | grep -qxF "$name"; then
+                echo "$body" | gh api "/repos/$REPO/labels/$name" -X PATCH --input -
+              else
+                echo "$body" | gh api "/repos/$REPO/labels" -X POST --input -
+              fi
+            done
+          }
+
+          apply_rulesets() {
+            existing=$(gh api "/repos/$REPO/rulesets" -q '.[].name' 2>/dev/null || echo "")
+            for name in $(yq -r '.rulesets | keys[]' "$SETTINGS"); do
+              body=$(yq -o=json ".rulesets.\"$name\"" "$SETTINGS" | jq --arg name "$name" '. + {name: $name}')
+              if echo "$existing" | grep -qxF "$name"; then
+                id=$(gh api "/repos/$REPO/rulesets" -q ".[] | select(.name==\"$name\") | .id")
+                echo "$body" | gh api "/repos/$REPO/rulesets/$id" -X PUT --input -
+              else
+                echo "$body" | gh api "/repos/$REPO/rulesets" -X POST --input -
+              fi
+            done
+          }
+
+          apply_branches() {
+            for branch in $(yq -r '.branches | keys[]' "$SETTINGS"); do
+              if yq -e ".branches.\"$branch\".protection" "$SETTINGS" >/dev/null 2>&1; then
+                yq -o=json ".branches.\"$branch\".protection" "$SETTINGS" | \
+                  gh api "/repos/$REPO/branches/$branch/protection" -X PUT --input -
+              fi
+            done
+          }
+
+          # Process each top-level key
+          for key in $(yq -r 'keys[]' "$SETTINGS"); do
+            case "$key" in
+              repository)
+                yq -o=json '.repository' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input -
+                ;;
+              labels)
+                apply_labels
+                ;;
+              security)
+                yq -o=json '{security_and_analysis: .security}' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input -
+                ;;
+              code_scanning)
+                state=$(yq -r '.code_scanning.state' "$SETTINGS")
+                [[ "$state" == "configured" ]] && yq -o=json '.code_scanning' "$SETTINGS" | gh api "/repos/$REPO/code-scanning/default-setup" -X PATCH --input -
+                ;;
+              rulesets)
+                apply_rulesets
+                ;;
+              branches)
+                apply_branches
+                ;;
+              *)
+                echo "Unknown key: $key (skipped)"
+                continue
+                ;;
+            esac
+            echo "✓ $key"
+          done
