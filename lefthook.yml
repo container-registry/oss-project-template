@@ -9,7 +9,7 @@ commit-msg:
   commands:
     dco-signoff:
       run: |
-        if ! grep -q "^Signed-off-by:" "$1"; then
+        if ! grep -q "^Signed-off-by:" {1}; then
           echo "ERROR: Missing DCO sign-off. Use 'git commit -s'"
           exit 1
         fi
