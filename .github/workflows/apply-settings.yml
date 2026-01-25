@@ -6,6 +6,9 @@ on:
     paths: ['.github/settings.yml']
   workflow_dispatch:
 
+# GITHUB_TOKEN can manage labels but not repository settings (description, etc.)
+# For full access: create PAT with 'repo' scope, add as SETTINGS_TOKEN secret
+
 permissions:
   contents: read
   issues: write
@@ -19,7 +22,7 @@ jobs:
 
       - name: Apply settings
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SETTINGS_TOKEN || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           SETTINGS: .github/settings.yml
         run: |
@@ -63,23 +66,23 @@ jobs:
           for key in $(yq -r 'keys[]' "$SETTINGS"); do
             case "$key" in
               repository)
-                yq -o=json '.repository' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input -
+                yq -o=json '.repository' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
                 ;;
               labels)
                 apply_labels
                 ;;
               security)
-                yq -o=json '{security_and_analysis: .security}' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input -
+                yq -o=json '{security_and_analysis: .security}' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
                 ;;
               code_scanning)
                 state=$(yq -r '.code_scanning.state' "$SETTINGS")
-                [[ "$state" == "configured" ]] && yq -o=json '.code_scanning' "$SETTINGS" | gh api "/repos/$REPO/code-scanning/default-setup" -X PATCH --input -
+                [[ "$state" == "configured" ]] && yq -o=json '.code_scanning' "$SETTINGS" | gh api "/repos/$REPO/code-scanning/default-setup" -X PATCH --input - || true
                 ;;
               rulesets)
-                apply_rulesets
+                apply_rulesets || echo "⚠ $key (needs SETTINGS_TOKEN)"
                 ;;
               branches)
-                apply_branches
+                apply_branches || echo "⚠ $key (needs SETTINGS_TOKEN)"
                 ;;
               *)
                 echo "Unknown key: $key (skipped)"
