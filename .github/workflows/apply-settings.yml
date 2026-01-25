@@ -72,7 +72,7 @@ jobs:
                 apply_labels
                 ;;
               security)
-                yq -o=json '{security_and_analysis: .security}' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
+                yq -o=json '.security' "$SETTINGS" | jq '{security_and_analysis: .}' | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
                 ;;
               code_scanning)
                 state=$(yq -r '.code_scanning.state' "$SETTINGS")
