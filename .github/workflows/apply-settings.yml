@@ -36,7 +36,7 @@ jobs:
 
       - uses: actions/github-script@v7
         env:
-          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_MODE: ${{ inputs.mode || 'apply' }}  # TODO: restore 'verify' when Go action ready
         with:
           github-token: ${{ secrets.SETTINGS_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
