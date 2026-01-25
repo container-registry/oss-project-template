@@ -238,15 +238,28 @@ module.exports = async ({ github, context, core }) => {
     return obj
   }
 
+  // Sort object keys recursively for stable comparison
+  function sortKeys(obj) {
+    if (obj === null || obj === undefined) return obj
+    if (Array.isArray(obj)) return obj.map(sortKeys)
+    if (typeof obj === 'object') {
+      return Object.keys(obj).sort().reduce((acc, key) => {
+        acc[key] = sortKeys(obj[key])
+        return acc
+      }, {})
+    }
+    return obj
+  }
+
   // Detect drift between settings.yml and GitHub
   async function detectDrift() {
     core.info('Exporting current GitHub settings...')
     const current = await exportSettings()
-    const expected = normalize(settings)
-    const actual = normalize(current)
+    const expected = sortKeys(normalize(settings))
+    const actual = sortKeys(normalize(current))
 
-    const expectedJson = JSON.stringify(expected, Object.keys(expected || {}).sort(), 2)
-    const actualJson = JSON.stringify(actual, Object.keys(actual || {}).sort(), 2)
+    const expectedJson = JSON.stringify(expected, null, 2)
+    const actualJson = JSON.stringify(actual, null, 2)
 
     if (expectedJson === actualJson) {
       core.info('✓ No drift detected - settings.yml matches GitHub')
