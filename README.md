@@ -1,8 +1,19 @@
 # OSS Project Template
 
 GitHub repository configuration and automation templates for open source projects.
-This repository is designed to be programming language agnositc, but for 
-end to end testability we have selected a golang application.  
+
+## Why This Template?
+
+This template maximizes GitHub's native capabilities for automation and guardrails, reducing the need for external services while making it straightforward for new contributors to join your project:
+
+- **Zero-friction onboarding** - YAML issue forms guide contributors through bug reports, feature requests, and proposals with validation and dropdowns
+- **Automated quality gates** - DCO sign-off, spell checking, license compliance, and dependency review run automatically on every PR
+- **Smart labeling** - PRs are auto-labeled by size (XS-XL) and changed components, keeping your issue tracker organized
+- **Release automation** - Release notes draft themselves from merged PRs, categorized by type
+- **Security-first** - OpenSSF Scorecard, dependency review, and vulnerability alerts enabled by default
+- **Welcoming community** - First-time contributors receive friendly guidance; clear support channels are documented
+
+This template is programming language agnostic. A minimal Go application is included for end-to-end testing.  
 
 
 ## Quick Start
