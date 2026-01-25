@@ -7,6 +7,7 @@
 #   security                     -> PATCH /repos/{owner}/{repo} (security_and_analysis)
 #   code_scanning                -> PATCH /repos/{owner}/{repo}/code-scanning/default-setup
 #   rulesets.{name}              -> POST/PUT /repos/{owner}/{repo}/rulesets
+#   environments.{name}          -> PUT /repos/{owner}/{repo}/environments/{name}
 #
 # Reference: https://docs.github.com/en/rest/repos
 
@@ -153,3 +154,14 @@ code_scanning:
 #       required_linear_history: false
 #       allow_force_pushes: false
 #       allow_deletions: false
+
+# environments:
+#   production:
+#     wait_timer: 0
+#     prevent_self_review: false
+#     reviewers:
+#       - type: User
+#         id: 123456
+#     deployment_branch_policy:
+#       protected_branches: true
+#       custom_branch_policies: false

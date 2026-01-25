@@ -4,7 +4,18 @@ on:
   push:
     branches: [main]
     paths: ['.github/settings.yml']
+  schedule:
+    - cron: '0 9 * * 1'  # Weekly Monday 9am UTC - drift check
   workflow_dispatch:
+    inputs:
+      mode:
+        description: |
+          verify - Apply settings then verify they were applied correctly (default)
+          apply  - Apply settings.yml to GitHub without verification
+          check  - Detect drift: compare settings.yml vs GitHub, fail if different (default on schedule)
+        type: choice
+        options: [verify, apply, check]
+        default: verify
 
 # GITHUB_TOKEN can manage labels but not repository settings (description, etc.)
 # For full access: create PAT with 'repo' scope, add as SETTINGS_TOKEN secret
@@ -14,19 +25,31 @@ permissions:
   issues: write
 
 jobs:
-  apply:
+  settings:
     runs-on: ubuntu-latest
     if: github.repository_owner == github.event.repository.owner.login
     steps:
       - uses: actions/checkout@v6
 
-      - name: Apply settings
+      - name: Run settings workflow
         env:
           GH_TOKEN: ${{ secrets.SETTINGS_TOKEN || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           SETTINGS: .github/settings.yml
+          INPUT_MODE: ${{ inputs.mode }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
+
+          # Determine mode: scheduled=check, push/manual=verify
+          if [[ -n "$INPUT_MODE" ]]; then
+            MODE="$INPUT_MODE"
+          elif [[ "$EVENT_NAME" == "schedule" ]]; then
+            MODE="check"
+          else
+            MODE="verify"
+          fi
+          echo "Mode: $MODE"
 
           apply_labels() {
             existing=$(gh api "/repos/$REPO/labels" --paginate -q '.[].name')
@@ -62,32 +85,83 @@ jobs:
             done
           }
 
-          # Process each top-level key
-          for key in $(yq -r 'keys[]' "$SETTINGS"); do
-            case "$key" in
-              repository)
-                yq -o=json '.repository' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
-                ;;
-              labels)
-                apply_labels
-                ;;
-              security)
-                yq -o=json '.security' "$SETTINGS" | jq '{security_and_analysis: .}' | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
-                ;;
-              code_scanning)
-                state=$(yq -r '.code_scanning.state' "$SETTINGS")
-                [[ "$state" == "configured" ]] && yq -o=json '.code_scanning' "$SETTINGS" | gh api "/repos/$REPO/code-scanning/default-setup" -X PATCH --input - || true
-                ;;
-              rulesets)
-                apply_rulesets || echo "⚠ $key (needs SETTINGS_TOKEN)"
-                ;;
-              branches)
-                apply_branches || echo "⚠ $key (needs SETTINGS_TOKEN)"
-                ;;
-              *)
-                echo "Unknown key: $key (skipped)"
-                continue
-                ;;
-            esac
-            echo "✓ $key"
-          done
+          apply_environments() {
+            for env in $(yq -r '.environments | keys[]' "$SETTINGS"); do
+              yq -o=json ".environments.\"$env\"" "$SETTINGS" | \
+                gh api "/repos/$REPO/environments/$env" -X PUT --input -
+            done
+          }
+
+          apply_settings() {
+            for key in $(yq -r 'keys[]' "$SETTINGS"); do
+              case "$key" in
+                repository)
+                  yq -o=json '.repository' "$SETTINGS" | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
+                  ;;
+                labels)
+                  apply_labels
+                  ;;
+                security)
+                  yq -o=json '.security' "$SETTINGS" | jq '{security_and_analysis: .}' | gh api "/repos/$REPO" -X PATCH --input - || echo "⚠ $key (needs SETTINGS_TOKEN)"
+                  ;;
+                code_scanning)
+                  state=$(yq -r '.code_scanning.state' "$SETTINGS")
+                  [[ "$state" == "configured" ]] && yq -o=json '.code_scanning' "$SETTINGS" | gh api "/repos/$REPO/code-scanning/default-setup" -X PATCH --input - || true
+                  ;;
+                rulesets)
+                  apply_rulesets || echo "⚠ $key (needs SETTINGS_TOKEN)"
+                  ;;
+                branches)
+                  apply_branches || echo "⚠ $key (needs SETTINGS_TOKEN)"
+                  ;;
+                environments)
+                  apply_environments || echo "⚠ $key (needs SETTINGS_TOKEN)"
+                  ;;
+                *)
+                  echo "Unknown key: $key (skipped)"
+                  continue
+                  ;;
+              esac
+              echo "✓ $key"
+            done
+          }
+
+          detect_drift() {
+            echo "Exporting current GitHub settings..."
+            ./scripts/export-settings.sh > /tmp/current.yml
+
+            # Normalize both files for comparison (sort keys, consistent formatting)
+            yq -P 'sort_keys(..)' "$SETTINGS" > /tmp/expected.yml
+            yq -P 'sort_keys(..)' /tmp/current.yml > /tmp/actual.yml
+
+            if diff -q /tmp/expected.yml /tmp/actual.yml >/dev/null 2>&1; then
+              echo "✓ No drift detected - settings.yml matches GitHub"
+              return 0
+            else
+              echo "::error::Drift detected! settings.yml differs from GitHub state:"
+              diff -u /tmp/expected.yml /tmp/actual.yml || true
+              return 1
+            fi
+          }
+
+          case "$MODE" in
+            check)
+              echo "::group::Checking for drift"
+              detect_drift
+              echo "::endgroup::"
+              ;;
+            apply)
+              echo "::group::Applying settings"
+              apply_settings
+              echo "::endgroup::"
+              ;;
+            verify)
+              echo "::group::Applying settings"
+              apply_settings
+              echo "::endgroup::"
+              echo "::group::Verifying settings were applied"
+              sleep 2  # Allow API to propagate
+              detect_drift
+              echo "::endgroup::"
+              ;;
+          esac

@@ -17,6 +17,7 @@ gh api "/repos/$REPO/labels" --paginate > "$TMP_DIR/labels.json"
 gh api "/repos/$REPO/branches/$DEFAULT_BRANCH/protection" 2>/dev/null > "$TMP_DIR/protection.json" || echo '{}' > "$TMP_DIR/protection.json"
 gh api "/repos/$REPO/code-scanning/default-setup" 2>/dev/null > "$TMP_DIR/code_scanning.json" || echo '{}' > "$TMP_DIR/code_scanning.json"
 gh api "/repos/$REPO/rulesets" 2>/dev/null > "$TMP_DIR/rulesets.json" || echo '[]' > "$TMP_DIR/rulesets.json"
+gh api "/repos/$REPO/environments" 2>/dev/null > "$TMP_DIR/environments.json" || echo '{"environments":[]}' > "$TMP_DIR/environments.json"
 
 cat <<'HEADER'
 # Repository Settings
@@ -28,6 +29,7 @@ cat <<'HEADER'
 #   security                     -> PATCH /repos/{owner}/{repo} (security_and_analysis)
 #   code_scanning                -> PATCH /repos/{owner}/{repo}/code-scanning/default-setup
 #   rulesets.{name}              -> POST/PUT /repos/{owner}/{repo}/rulesets
+#   environments.{name}          -> PUT /repos/{owner}/{repo}/environments/{name}
 #
 # Reference: https://docs.github.com/en/rest/repos
 
@@ -39,8 +41,9 @@ jq -n \
   --slurpfile protection "$TMP_DIR/protection.json" \
   --slurpfile code_scanning "$TMP_DIR/code_scanning.json" \
   --slurpfile rulesets "$TMP_DIR/rulesets.json" \
+  --slurpfile environments "$TMP_DIR/environments.json" \
   --arg branch "$DEFAULT_BRANCH" \
-'($repo[0]) as $r | ($labels[0]) as $l | ($protection[0]) as $p | ($code_scanning[0]) as $cs | ($rulesets[0]) as $rs |
+'($repo[0]) as $r | ($labels[0]) as $l | ($protection[0]) as $p | ($code_scanning[0]) as $cs | ($rulesets[0]) as $rs | ($environments[0].environments) as $envs |
 {
   repository: {
     description: $r.description,
@@ -90,6 +93,14 @@ jq -n \
         allow_force_pushes: $p.allow_force_pushes.enabled,
         allow_deletions: $p.allow_deletions.enabled
       }}}
+    else null end
+  ),
+  environments: (
+    if ($envs | length) > 0 then
+      ($envs | map({
+        (.name): (del(.id, .node_id, .created_at, .updated_at, .html_url, .name) |
+          with_entries(select(.value != null and .value != [])))
+      }) | add)
     else null end
   )
 } | with_entries(select(.value != null))' | yq -P '.'
