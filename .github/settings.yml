@@ -25,8 +25,8 @@ repository:
   default_branch: main
   allow_forking: true
   allow_squash_merge: true
-  allow_merge_commit: true
-  allow_rebase_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: false
   delete_branch_on_merge: true
   allow_auto_merge: false
   allow_update_branch: true
