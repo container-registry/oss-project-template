@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/container-registry/oss-project-template/compare/app-v1.1.0...app-v1.2.0) (2026-01-26)
+
+
+### Features
+
+* add All Contributors configuration and update CONTRIBUTORS.md ([8b0c588](https://github.com/container-registry/oss-project-template/commit/8b0c5884a12d16a8cefcb227a35f3234090a78c4))
+
 ## [1.1.0](https://github.com/container-registry/oss-project-template/compare/app-v1.0.0...app-v1.1.0) (2026-01-26)
 
 
