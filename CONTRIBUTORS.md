@@ -7,6 +7,16 @@ Thanks to all these wonderful people who have contributed to this project!
 Automatically updated from git history.
 
 <!-- readme: contributors -start -->
+<table>
+<tr>
+    <td align="center">
+        <a href="https://github.com/Vad1mo">
+            <img src="https://avatars.githubusercontent.com/u/1492007?v=4" width="100;" alt="Vad1mo"/>
+            <br />
+            <sub><b>Vadim Bauer</b></sub>
+        </a>
+    </td></tr>
+</table>
 <!-- readme: contributors -end -->
 
 ## All Contributors
