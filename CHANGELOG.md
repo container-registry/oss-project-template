@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/container-registry/oss-project-template/compare/app-v1.0.0...app-v1.1.0) (2026-01-26)
+
+
+### Features
+
+* add PR title validation workflow to enforce conventional commits ([29f2a8c](https://github.com/container-registry/oss-project-template/commit/29f2a8c56879a2c41aa3f5690d0d3eb34f112e76))
+
 ## 1.0.0 (2026-01-26)
 
 
