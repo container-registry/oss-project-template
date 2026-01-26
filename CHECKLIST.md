@@ -96,9 +96,10 @@ diff .github/settings.yml current.yml
 
 - [ ] No changes needed (uses `labeler.yml` config)
 
-### `.github/workflows/dco.yml`
+### DCO Enforcement (dco2 GitHub App)
 
-- [ ] No changes needed (or remove if not using DCO)
+- [ ] Install [dco2](https://github.com/apps/dco2) GitHub App on your repository
+- [ ] (Optional) Add `.github/dco.yml` to customize behavior (e.g., skip sign-off for GPG-signed commits)
 
 ### `.github/workflows/license-check.yml`
 
@@ -238,7 +239,7 @@ After setup, verify everything works:
 - [ ] Open a test PR - should receive auto-labels
 - [ ] Check Actions tab - workflows should run
 - [ ] Verify spell check passes
-- [ ] Verify DCO check works (if using)
+- [ ] Verify dco2 app is installed and running on PRs
 - [ ] Create a draft release - release notes should populate
 
 ---

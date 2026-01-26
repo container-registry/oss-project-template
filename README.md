@@ -50,7 +50,7 @@ act -j spellcheck         # Run specific job
 act -j license-check
 ```
 
-Note: Only `spellcheck`, `dco`, and `license-check` work locally. Other workflows require GitHub's API.
+Note: Only `spellcheck` and `license-check` work locally. Other workflows require GitHub's API.
 
 ## Placeholders
 
@@ -83,7 +83,6 @@ Replace these placeholders in all files:
 | `welcome.yml` | Greet first-time contributors |
 | `labeler.yml` | Auto-label PRs by changed files |
 | `pr-size-labeler.yml` | Auto-label PRs by size (XS/S/M/L/XL) |
-| `dco.yml` | DCO sign-off validation |
 | `release-drafter.yml` | Auto-generate release notes |
 | `spellcheck.yml` | Spell check with typos |
 | `license-check.yml` | License compliance for Go dependencies |
@@ -138,8 +137,18 @@ myterm = "myterm"
 ## Requirements
 
 Some workflows require:
-- **DCO**: Contributors must sign off commits
 - **Go**: For license-check workflow (Go projects only)
+
+### DCO Enforcement
+
+This template uses [dco2](https://github.com/cncf/dco2), a GitHub App that enforces Developer Certificate of Origin sign-offs on pull requests.
+
+**Install the app:** https://github.com/apps/dco2
+
+Benefits over workflow-based DCO checks:
+- Remediation commits (fix missing sign-offs without force-push)
+- Third-party sign-off support
+- Optional bypass for GPG-signed commits (configure via `.github/dco.yml`)
 
 ## License
 
