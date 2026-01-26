@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/container-registry/oss-project-template/compare/app-v1.0.0...app-v1.1.0) (2026-01-26)
+
+
+### Features
+
+* add PR title validation workflow to enforce conventional commits ([29f2a8c](https://github.com/container-registry/oss-project-template/commit/29f2a8c56879a2c41aa3f5690d0d3eb34f112e76))
+* update release-please configuration for pull request handling and tagging ([4f36829](https://github.com/container-registry/oss-project-template/commit/4f368291c9a455c521b1fa8954f150ce46a41eaf))
+
+
+### Bug Fixes
+
+* Exclude CHANGELOG.md in .typos.toml. The file is auto-generated. ([c556339](https://github.com/container-registry/oss-project-template/commit/c5563390022da1ca1523748f5c196e2475fa28c0))
+* update pull request title pattern for release configuration ([1bf6f8f](https://github.com/container-registry/oss-project-template/commit/1bf6f8fbc843aa8c1ba89b2a9e0686909055f295))
+
 ## 1.0.0 (2026-01-26)
 
 
