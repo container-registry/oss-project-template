@@ -115,6 +115,7 @@ Replace these placeholders in all files:
 | `welcome.yml` | Greet first-time contributors |
 | `labeler.yml` | Auto-label PRs by changed files |
 | `pr-size-labeler.yml` | Auto-label PRs by size (XS/S/M/L/XL) |
+| `pr-title.yml` | Validate PR title follows conventional commits |
 | `release-please.yml` | Create release PRs from conventional commits |
 | `spellcheck.yml` | Spell check with typos |
 | `license-check.yml` | License compliance for Go dependencies |
