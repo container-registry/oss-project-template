@@ -41,6 +41,7 @@ extend-exclude = [
     "*.generated.go",
     "*_gen.go",
     "CHANGELOG.md",
+    "CONTRIBUTORS.md",
 
     # Vendor directories
     "vendor/",

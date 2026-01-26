@@ -4,6 +4,7 @@
   "separate-pull-requests": true,
   "pull-request-title-pattern": "chore: release ${component} ${version}",
   "include-component-in-tag": true,
+  "exclude-paths": ["CONTRIBUTORS.md"],
   "packages": {
     ".": {
       "release-type": "go",
