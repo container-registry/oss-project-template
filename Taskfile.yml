@@ -8,6 +8,7 @@ tasks:
     desc: Run all pre-commit checks
     cmds:
       - task: spellcheck
+      - task: commit-lint
       - task: dco-check
       - task: license-check
 
@@ -15,6 +16,22 @@ tasks:
     desc: Run spell checker (mirrors CI)
     cmds:
       - typos --config .typos.toml
+
+  commit-lint:
+    desc: Check commits follow Conventional Commits format
+    cmds:
+      - |
+        pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+"
+        for commit in $(git log --format=%H origin/main..HEAD 2>/dev/null || git log --format=%H -5); do
+          msg=$(git log -1 --format=%s $commit)
+          if ! echo "$msg" | grep -Eq "$pattern"; then
+            echo "ERROR: Commit $commit does not follow Conventional Commits"
+            echo "  Message: $msg"
+            echo "  Format: <type>[scope]: <description>"
+            exit 1
+          fi
+        done
+        echo "All commits follow Conventional Commits format"
 
   dco-check:
     desc: Check commits have DCO sign-off

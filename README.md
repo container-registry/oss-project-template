@@ -2,6 +2,38 @@
 
 GitHub repository configuration and automation templates for open source projects.
 
+## Principles & Assumptions
+
+This template is opinionated. Here's what it assumes and why:
+
+| Principle | Implementation | Why |
+|-----------|----------------|-----|
+| **Conventional Commits** | Commit messages must follow `type: description` format | Enables automatic versioning, changelog generation, and clear history |
+| **Squash Merge Only** | Merge commits and rebases disabled | One commit per PR keeps history clean and bisectable |
+| **PR-Based Workflow** | All changes via pull requests | Ensures review, CI checks, and audit trail |
+| **DCO Sign-Off** | All commits require `Signed-off-by` | Legal compliance for open source contributions |
+| **Automated Releases** | Version bumps from commit types | Removes manual versioning errors, ensures consistency |
+| **Monorepo Ready** | App + Helm chart tracked independently | Common pattern for cloud-native projects |
+| **Local-First** | Lefthook validates before push | Fail fast locally, don't waste CI time |
+| **GitHub-Native** | Maximize GitHub features, minimize external dependencies | Reduces complexity, improves reliability |
+
+### Commit Message Format
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+Signed-off-by: Name <email>
+```
+
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+
+**Version impact:**
+- `feat:` → minor bump (0.1.0 → 0.2.0)
+- `fix:`, `docs:`, `chore:`, etc. → patch bump (0.1.0 → 0.1.1)
+- `feat!:` or `fix!:` (breaking) → major bump (0.1.0 → 1.0.0)
+
 ## Why This Template?
 
 This template maximizes GitHub's native capabilities for automation and guardrails, reducing the need for external services while making it straightforward for new contributors to join your project:
