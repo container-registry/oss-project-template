@@ -9,7 +9,7 @@ This template maximizes GitHub's native capabilities for automation and guardrai
 - **Zero-friction onboarding** - YAML issue forms guide contributors through bug reports, feature requests, and proposals with validation and dropdowns
 - **Automated quality gates** - DCO sign-off, spell checking, license compliance, and dependency review run automatically on every PR
 - **Smart labeling** - PRs are auto-labeled by size (XS-XL) and changed components, keeping your issue tracker organized
-- **Release automation** - Release notes draft themselves from merged PRs, categorized by type
+- **Release automation** - Version bumps and changelogs generated automatically from conventional commits
 - **Security-first** - OpenSSF Scorecard, dependency review, and vulnerability alerts enabled by default
 - **Welcoming community** - First-time contributors receive friendly guidance; clear support channels are documented
 
@@ -83,19 +83,20 @@ Replace these placeholders in all files:
 | `welcome.yml` | Greet first-time contributors |
 | `labeler.yml` | Auto-label PRs by changed files |
 | `pr-size-labeler.yml` | Auto-label PRs by size (XS/S/M/L/XL) |
-| `release-drafter.yml` | Auto-generate release notes |
+| `release-please.yml` | Create release PRs from conventional commits |
 | `spellcheck.yml` | Spell check with typos |
 | `license-check.yml` | License compliance for Go dependencies |
 | `dependency-review.yml` | Review dependency changes in PRs |
 | `scorecard.yml` | OpenSSF Scorecard integration |
-| `changelog-sync.yml` | Sync GitHub Releases to CHANGELOG.md |
+| `release-assets.yml` | Build and upload release binaries |
 | `apply-settings.yml` | Apply repository settings from `settings.yml` |
 
 ### Configuration Files
 | File | Purpose |
 |------|---------|
 | `.github/labeler.yml` | File pattern to label mapping |
-| `.github/release-drafter.yml` | Release notes template |
+| `release-please-config.json` | Release-please configuration |
+| `.release-please-manifest.json` | Release-please version manifest |
 | `.github/settings.yml` | Repository settings (auto-applied via workflow) |
 | `.typos.toml` | Spell checker configuration |
 
@@ -133,6 +134,26 @@ Edit `.typos.toml` to add project-specific terms:
 [default.extend-words]
 myterm = "myterm"
 ```
+
+### Monorepo Support
+
+Release-please supports multiple packages with independent versioning. The default config tracks both the app and a Helm chart:
+
+```json
+{
+  "packages": {
+    ".": { "release-type": "go", "component": "app" },
+    "charts/app": { "release-type": "helm", "component": "helm-chart" }
+  }
+}
+```
+
+Each package gets:
+- Independent version tracking in `.release-please-manifest.json`
+- Separate GitHub releases (e.g., `app-v1.0.0`, `helm-chart-v0.5.0`)
+- Its own CHANGELOG.md in its directory
+
+Commits are attributed to packages based on changed paths. Remove the `charts/app` entry if not using Helm.
 
 ## Requirements
 

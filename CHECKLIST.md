@@ -119,9 +119,15 @@ diff .github/settings.yml current.yml
 
 - [ ] Review fail-on-severity level
 
-### `.github/workflows/release-drafter.yml`
+### `.github/workflows/release-please.yml`
 
-- [ ] No changes needed (uses `release-drafter.yml` config)
+- [ ] No changes needed (uses `release-please-config.json`)
+
+### `.github/workflows/release-assets.yml`
+
+- [ ] Update build commands for your language/project
+- [ ] Modify binary names and architectures as needed
+- [ ] Remove if not publishing binaries
 
 ### `.github/workflows/apply-settings.yml`
 
@@ -143,11 +149,36 @@ diff .github/settings.yml current.yml
   ```
 - [ ] Remove language-specific patterns you don't use
 
-### `.github/release-drafter.yml`
+### `release-please-config.json`
 
-- [ ] Review categories and labels
-- [ ] Customize release notes template
-- [ ] Update autolabeler file patterns
+- [ ] Update `release-type` for your language:
+  - `go` (default) - Go modules
+  - `node` - Node.js (updates package.json)
+  - `python` - Python (updates pyproject.toml)
+  - `rust` - Rust (updates Cargo.toml)
+  - `simple` - Generic (creates version.txt)
+- [ ] Customize changelog sections if needed
+
+### `.release-please-manifest.json`
+
+- [ ] Set initial version (default: `0.0.0`)
+
+### Conventional Commits (Required)
+
+This template uses conventional commits for automatic versioning:
+
+| Prefix | Version Bump | Example |
+|--------|--------------|---------|
+| `feat:` | Minor | `feat: add user authentication` |
+| `fix:` | Patch | `fix: resolve login timeout` |
+| `feat!:` or `fix!:` | Major | `feat!: redesign API endpoints` |
+| `docs:` | Patch | `docs: update README` |
+| `chore:` | Patch | `chore: update dependencies` |
+| `perf:` | Patch | `perf: optimize database queries` |
+| `refactor:` | Patch | `refactor: simplify validation logic` |
+| `test:` | Patch | `test: add unit tests for auth` |
+| `build:` | Patch | `build: update Dockerfile` |
+| `ci:` | Patch | `ci: fix workflow permissions` |
 
 ### `.typos.toml`
 
@@ -240,7 +271,8 @@ After setup, verify everything works:
 - [ ] Check Actions tab - workflows should run
 - [ ] Verify spell check passes
 - [ ] Verify dco2 app is installed and running on PRs
-- [ ] Create a draft release - release notes should populate
+- [ ] Push a commit with `feat: test feature` - should create/update Release PR
+- [ ] Merge Release PR - should create GitHub Release and update CHANGELOG.md
 
 ---
 

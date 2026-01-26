@@ -1,0 +1,31 @@
+name: Release Assets
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build binaries
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o dist/app-linux-amd64 .
+          GOOS=darwin GOARCH=amd64 go build -o dist/app-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -o dist/app-darwin-arm64 .
+          GOOS=windows GOARCH=amd64 go build -o dist/app-windows-amd64.exe .
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

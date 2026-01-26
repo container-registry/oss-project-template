@@ -109,6 +109,23 @@ labels:
     color: fef2c0
     description: Work in progress
 
+  # Conventional commit type labels
+  chore:
+    color: fef2c0
+    description: Maintenance task
+  perf:
+    color: f9d0c4
+    description: Performance improvement
+  refactor:
+    color: d4c5f9
+    description: Code refactoring
+  test:
+    color: bfdadc
+    description: Test-related changes
+  build:
+    color: c2e0c6
+    description: Build system changes
+
 security:
   secret_scanning:
     status: disabled
