@@ -39,6 +39,7 @@ This file maps 1:1 to GitHub REST API and is auto-applied on push to main.
 - [ ] Update `description` to your project description
 - [ ] Set `homepage` URL (or leave empty)
 - [ ] Review merge strategies (`allow_squash_merge`, etc.)
+- [ ] Keep `actions.can_approve_pull_request_reviews` enabled so release-please can open release PRs
 - [ ] Uncomment and configure branch protection rules if needed
 - [ ] Add project-specific component labels
 
@@ -121,7 +122,8 @@ diff .github/settings.yml current.yml
 
 ### `.github/workflows/release-please.yml`
 
-- [ ] No changes needed (uses `release-please-config.json`)
+- [ ] No changes needed for changelog/tag automation (uses `release-please-config.json`)
+- [ ] Add post-release jobs here if publishing images, charts, binaries, or other artifacts
 
 ### `.github/workflows/release-assets.yml`
 
@@ -152,16 +154,18 @@ diff .github/settings.yml current.yml
 ### `release-please-config.json`
 
 - [ ] Update `release-type` for your language:
-  - `go` (default) - Go modules
+  - `simple` (default) - Generic (creates `version.txt`)
+  - `go` - Go modules
   - `node` - Node.js (updates package.json)
   - `python` - Python (updates pyproject.toml)
   - `rust` - Rust (updates Cargo.toml)
-  - `simple` - Generic (creates version.txt)
+  - `helm` - Helm charts (updates Chart.yaml)
 - [ ] Customize changelog sections if needed
 
 ### `.release-please-manifest.json`
 
 - [ ] Set initial version (default: `0.0.0`)
+- [ ] Set `version.txt` to the same version when using the default `simple` release type
 
 ### Conventional Commits (Required)
 
@@ -171,14 +175,9 @@ This template uses conventional commits for automatic versioning:
 |--------|--------------|---------|
 | `feat:` | Minor | `feat: add user authentication` |
 | `fix:` | Patch | `fix: resolve login timeout` |
-| `feat!:` or `fix!:` | Major | `feat!: redesign API endpoints` |
-| `docs:` | Patch | `docs: update README` |
-| `chore:` | Patch | `chore: update dependencies` |
-| `perf:` | Patch | `perf: optimize database queries` |
-| `refactor:` | Patch | `refactor: simplify validation logic` |
-| `test:` | Patch | `test: add unit tests for auth` |
-| `build:` | Patch | `build: update Dockerfile` |
-| `ci:` | Patch | `ci: fix workflow permissions` |
+| `feat!:` or `fix!:` | Major (minor on 0.x) | `feat!: redesign API endpoints` |
+| `docs:`, `perf:`, `refactor:`, `revert:` | None (included in next release) | `docs: update README` |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | None (hidden) | `chore: update dependencies` |
 
 ### `.typos.toml`
 
@@ -273,6 +272,7 @@ After setup, verify everything works:
 - [ ] Verify dco2 app is installed and running on PRs
 - [ ] Push a commit with `feat: test feature` - should create/update Release PR
 - [ ] Merge Release PR - should create GitHub Release and update CHANGELOG.md
+- [ ] Confirm the release created a `vX.Y.Z` tag and updated `version.txt` (or the configured language version file)
 
 ---
 
@@ -356,6 +356,8 @@ license-check:
 # 1. Copy template files to your repo
 cp -r .github /path/to/your/repo/
 cp CODE_OF_CONDUCT.md SUPPORT.md ROADMAP.md CHANGELOG.md /path/to/your/repo/
+cp release-please-config.json .release-please-manifest.json version.txt /path/to/your/repo/
+cp -r docs /path/to/your/repo/
 cp .typos.toml /path/to/your/repo/
 
 # 2. Replace placeholders (customize these values)

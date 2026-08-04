@@ -14,6 +14,15 @@ module.exports = async ({ github, context, core }) => {
     core.info('✓ repository')
   }
 
+  // Apply default GitHub Actions workflow permissions
+  async function applyActions() {
+    if (!settings.actions) return
+    await github.request('PUT /repos/{owner}/{repo}/actions/permissions/workflow', {
+      owner, repo, ...settings.actions
+    })
+    core.info('✓ actions')
+  }
+
   // Apply labels (create or update)
   async function applyLabels() {
     if (!settings.labels) return
@@ -89,6 +98,7 @@ module.exports = async ({ github, context, core }) => {
   // Apply all settings with error handling
   async function applyAll() {
     await applyRepository().catch(e => core.warning(`repository: ${e.message} (needs SETTINGS_TOKEN?)`))
+    await applyActions().catch(e => core.warning(`actions: ${e.message} (needs SETTINGS_TOKEN?)`))
     await applyLabels().catch(e => core.warning(`labels: ${e.message}`))
     await applySecurity().catch(e => core.warning(`security: ${e.message} (needs SETTINGS_TOKEN?)`))
     await applyCodeScanning().catch(e => core.warning(`code_scanning: ${e.message}`))
@@ -101,6 +111,14 @@ module.exports = async ({ github, context, core }) => {
   async function exportSettings() {
     const { data: r } = await github.rest.repos.get({ owner, repo })
     const { data: labels } = await github.rest.issues.listLabelsForRepo({ owner, repo, per_page: 100 })
+
+    let actionsData
+    try {
+      const actions = await github.request('GET /repos/{owner}/{repo}/actions/permissions/workflow', { owner, repo })
+      actionsData = actions.data
+    } catch (e) {
+      // Actions workflow permissions are unavailable without repository admin access
+    }
 
     let codeScanningData = {}
     try {
@@ -160,6 +178,10 @@ module.exports = async ({ github, context, core }) => {
         merge_commit_message: r.merge_commit_message,
         web_commit_signoff_required: r.web_commit_signoff_required
       },
+      actions: actionsData ? {
+        default_workflow_permissions: actionsData.default_workflow_permissions,
+        can_approve_pull_request_reviews: actionsData.can_approve_pull_request_reviews
+      } : undefined,
       labels: Object.fromEntries(labels.map(l => [l.name, { color: l.color, description: l.description || '' }])),
       security: r.security_and_analysis ? {
         secret_scanning: { status: r.security_and_analysis.secret_scanning?.status },

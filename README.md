@@ -13,7 +13,7 @@ This template is opinionated. Here's what it assumes and why:
 | **PR-Based Workflow** | All changes via pull requests | Ensures review, CI checks, and audit trail |
 | **DCO Sign-Off** | All commits require `Signed-off-by` | Legal compliance for open source contributions |
 | **Automated Releases** | Version bumps from commit types | Removes manual versioning errors, ensures consistency |
-| **Monorepo Ready** | App + Helm chart tracked independently | Common pattern for cloud-native projects |
+| **Adaptable Versioning** | Generic release type with language-specific extension points | Works before project packaging is finalized |
 | **Local-First** | Lefthook validates before push | Fail fast locally, don't waste CI time |
 | **GitHub-Native** | Maximize GitHub features, minimize external dependencies | Reduces complexity, improves reliability |
 
@@ -31,8 +31,9 @@ Signed-off-by: Name <email>
 
 **Version impact:**
 - `feat:` → minor bump (0.1.0 → 0.2.0)
-- `fix:`, `docs:`, `chore:`, etc. → patch bump (0.1.0 → 0.1.1)
-- `feat!:` or `fix!:` (breaking) → major bump (0.1.0 → 1.0.0)
+- `fix:` → patch bump (0.1.0 → 0.1.1)
+- `feat!:` or `fix!:` (breaking) → major bump, or minor while on 0.x
+- Other types do not trigger a release by themselves
 
 ## Why This Template?
 
@@ -51,7 +52,7 @@ This template is programming language agnostic. A minimal Go application is incl
 ## Quick Start
 
 1. Copy the `.github/` directory to your repository
-2. Copy the community files (`CODE_OF_CONDUCT.md`, `SUPPORT.md`, `CHANGELOG.md`, `ROADMAP.md`)
+2. Copy the community and release files (`CODE_OF_CONDUCT.md`, `SUPPORT.md`, `CHANGELOG.md`, `ROADMAP.md`, `release-please-config.json`, `.release-please-manifest.json`, `version.txt`, `docs/RELEASES.md`)
 3. Copy `.typos.toml` for spell checking
 4. Replace placeholders with your project values
 5. Follow the **[CHECKLIST.md](CHECKLIST.md)** for a complete adoption guide
@@ -130,8 +131,10 @@ Replace these placeholders in all files:
 | `.github/labeler.yml` | File pattern to label mapping |
 | `release-please-config.json` | Release-please configuration |
 | `.release-please-manifest.json` | Release-please version manifest |
+| `version.txt` | Generic version file maintained by release-please |
 | `.github/settings.yml` | Repository settings (auto-applied via workflow) |
 | `.typos.toml` | Spell checker configuration |
+| `docs/RELEASES.md` | Generic release process and extension points |
 
 ### Scripts
 | File | Purpose |
@@ -168,25 +171,22 @@ Edit `.typos.toml` to add project-specific terms:
 myterm = "myterm"
 ```
 
-### Monorepo Support
+### Release Automation
 
-Release-please supports multiple packages with independent versioning. The default config tracks both the app and a Helm chart:
+The default release-please config tracks one generic package and creates `vX.Y.Z` tags. Its `simple` release type maintains `version.txt`; switch to a language-specific release type when appropriate:
 
 ```json
 {
+  "release-type": "simple",
   "packages": {
-    ".": { "release-type": "go", "component": "app" },
-    "charts/app": { "release-type": "helm", "component": "helm-chart" }
+    ".": {}
   }
 }
 ```
 
-Each package gets:
-- Independent version tracking in `.release-please-manifest.json`
-- Separate GitHub releases (e.g., `app-v1.0.0`, `helm-chart-v0.5.0`)
-- Its own CHANGELOG.md in its directory
+Use `go`, `node`, `python`, `rust`, or `helm` when release-please should update the project's native version file. Monorepos can add package paths under `packages`; each path gets independent version tracking and a changelog.
 
-Commits are attributed to packages based on changed paths. Remove the `charts/app` entry if not using Helm.
+See [docs/RELEASES.md](docs/RELEASES.md) for the flow, version rules, required repository settings, and post-release job pattern.
 
 ## Requirements
 
