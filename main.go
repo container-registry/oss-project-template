@@ -1,7 +1,32 @@
+// Command app is the minimal program the template's build, test and release
+// pipeline runs against. Replace it with the real project; keep the version
+// variable, which `task release-assets` and the Dockerfile stamp at build time.
 package main
 
-import "fmt"
+import (
+	"flag"
+	"fmt"
+	"os"
+)
+
+// version is set at build time with -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
-	fmt.Println("Hello, World!")
+	showVersion := flag.Bool("version", false, "print the version and exit")
+	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
+
+	if _, err := fmt.Fprintln(os.Stdout, greeting()); err != nil {
+		fmt.Fprintln(os.Stderr, "write failed:", err)
+		os.Exit(1)
+	}
+}
+
+func greeting() string {
+	return "Hello, World!"
 }
