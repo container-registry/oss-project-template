@@ -53,6 +53,15 @@ def optional_block(key: str) -> re.Pattern:
     )
 
 
+# The marker lines themselves are always removed, whether or not the block they
+# guard survives. Leaving them behind when the value IS supplied was a bug that
+# only showed up once bootstrap was run with a non-empty optional value.
+MARKER_LINE = re.compile(
+    r"^[ \t]*(?:<!--[ ]*(?:if:[A-Z_]+|endif)[ ]*-->|#[ ]*(?:if:[A-Z_]+|endif))[ \t]*\n",
+    re.M,
+)
+
+
 @dataclasses.dataclass(frozen=True)
 class Field:
     key: str
@@ -105,6 +114,12 @@ def collect(args) -> dict[str, str]:
                 value = input(f"{field.prompt}{suffix}: ").strip()
         if field.required and not value:
             sys.exit(f"error: {field.key} is required")
+        # Values land in YAML strings, JSON, and Dockerfile LABELs. Rejecting
+        # the two characters that break those is simpler to reason about than
+        # escaping per output format, and the answer is always to rephrase.
+        bad = set(value) & set('"\\')
+        if bad:
+            sys.exit(f"error: {field.key} must not contain {' or '.join(sorted(bad))}")
         values[field.key] = value
 
     if not values["MODULE_PATH"]:
@@ -134,6 +149,9 @@ def substitute(values: dict[str, str], dry_run: bool) -> int:
         # Then any stray line still mentioning it, so nothing points nowhere.
         for pattern in drops:
             text = pattern.sub("", text)
+
+        # Whatever blocks survived, their markers do not.
+        text = MARKER_LINE.sub("", text)
 
         for key, value in values.items():
             text = text.replace(f"{{{{{key}}}}}", value)
@@ -169,6 +187,18 @@ def remove_go_pack(dry_run: bool) -> None:
             else:
                 path.unlink()
 
+    # The automation reference documents files that no longer exist.
+    doc = ROOT / "docs/repo-automation.md"
+    if doc.exists() and not dry_run:
+        gone = ("ci.yml", "release-assets.yml", "publish-image.yml", ".github/actions/setup",
+                ".golangci.yaml", "Dockerfile", "go.mod")
+        kept = [
+            line for line in doc.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not (line.lstrip().startswith("|") and any(name in line for name in gone))
+        ]
+        doc.write_text("".join(kept), encoding="utf-8")
+        print("pruned docs/repo-automation.md")
+
     release_please = ROOT / ".github/workflows/release-please.yml"
     if release_please.exists() and not dry_run:
         text = release_please.read_text(encoding="utf-8")
@@ -177,6 +207,36 @@ def remove_go_pack(dry_run: bool) -> None:
             text = re.sub(rf"\n  {job}:\n(?:(?:    |\n).*\n)*", "\n", text)
         release_please.write_text(text, encoding="utf-8")
         print("removed the publish jobs from release-please.yml")
+
+
+def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
+    """Update the two files that cannot carry a placeholder.
+
+    go.mod must stay buildable in the template itself, and a module path
+    containing braces is not a valid module path. `.github/settings.yml` is
+    applied to the live repository on every push to main, so a placeholder
+    there would be written to the template's own homepage field.
+    """
+    module = ROOT / "go.mod"
+    if module.exists():
+        text = module.read_text(encoding="utf-8")
+        updated = re.sub(r"^module .*$", f"module {values['MODULE_PATH']}", text, count=1, flags=re.M)
+        if updated != text:
+            print(f"{'would set' if dry_run else 'setting'} go.mod module to {values['MODULE_PATH']}")
+            if not dry_run:
+                module.write_text(updated, encoding="utf-8")
+
+    settings = ROOT / ".github/settings.yml"
+    if settings.exists():
+        text = settings.read_text(encoding="utf-8")
+        updated = text
+        for key, value in (("description", values["REPO_DESCRIPTION"]),
+                           ("homepage", values["HOMEPAGE_URL"])):
+            updated = re.sub(rf'^(\s*){key}: ""$', rf'\g<1>{key}: "{value}"', updated, count=1, flags=re.M)
+        if updated != text:
+            print(f"{'would set' if dry_run else 'setting'} description and homepage in settings.yml")
+            if not dry_run:
+                settings.write_text(updated, encoding="utf-8")
 
 
 def strip_release_migration_keys(dry_run: bool) -> None:
@@ -249,6 +309,7 @@ def main() -> int:
     if args.lang == "none":
         remove_go_pack(args.dry_run)
 
+    rewrite_identity_files(values, args.dry_run)
     strip_release_migration_keys(args.dry_run)
     write_provenance(values, args.dry_run)
 

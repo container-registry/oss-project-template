@@ -31,6 +31,7 @@ on:
 # access token scoped to this repository alone, with
 #   Administration: read and write
 #   Metadata: read
+#   Issues: read and write        (labels are managed through the Issues API)
 # A classic `repo`-scope token also works but grants far more than is needed.
 #
 # Without the secret the job reports what it skipped and succeeds; a brand new
@@ -62,11 +63,13 @@ jobs:
         with:
           persist-credentials: false
 
-      # Exact version, and --ignore-scripts so no install hook executes in the
-      # one job that can hold an administration token.
+      # npm ci from the committed lockfile, not npm install: this is the one
+      # job that can hold an administration token, so the dependency tree is
+      # integrity-pinned rather than resolved at run time. --ignore-scripts
+      # means no install hook executes here either.
       - name: Install js-yaml
         if: env.HAS_SETTINGS_TOKEN == 'true'
-        run: npm install --no-save --no-audit --no-fund --ignore-scripts js-yaml@4.1.0
+        run: npm ci --ignore-scripts --no-audit --no-fund
 
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         if: env.HAS_SETTINGS_TOKEN == 'true'

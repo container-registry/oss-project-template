@@ -203,7 +203,10 @@ def check_local_workflow_calls_resolve(errors: list[str]) -> None:
             ref = match.group(1)[2:]
             target = ROOT / ref
             # A composite action is referenced by its directory.
-            if target.is_file() or (target.is_dir() and (target / "action.yml").is_file()):
+            is_action_dir = target.is_dir() and any(
+                (target / name).is_file() for name in ("action.yml", "action.yaml")
+            )
+            if target.is_file() or is_action_dir:
                 continue
             errors.append(f"{_rel(path)}: calls {match.group(1)!r}, which does not exist")
 
@@ -249,9 +252,19 @@ def check_pr_target_never_checks_out(errors: list[str]) -> None:
         except Exception:
             continue  # check_yaml_loads already reported it
 
-        # PyYAML reads the unquoted key `on` as the boolean True.
-        triggers = doc.get("on", doc.get(True)) or {}
-        if not isinstance(triggers, dict) or "pull_request_target" not in triggers:
+        # PyYAML reads the unquoted key `on` as the boolean True. The value
+        # may be a mapping, a sequence, or a bare string, and the guard has to
+        # recognise all three or it silently passes the workflow.
+        triggers = doc.get("on", doc.get(True))
+        if isinstance(triggers, dict):
+            names = set(triggers)
+        elif isinstance(triggers, list):
+            names = set(triggers)
+        elif isinstance(triggers, str):
+            names = {triggers}
+        else:
+            names = set()
+        if "pull_request_target" not in names:
             continue
 
         for job in (doc.get("jobs") or {}).values():
@@ -283,6 +296,37 @@ BINARY_MAGIC = (
     b"\xca\xfe\xba\xbe",  # Mach-O universal
     b"MZ",                 # PE
 )
+
+
+def check_base_image_pin_matches(errors: list[str]) -> None:
+    """The Dockerfile ARG defaults must match versions.env.
+
+    Two copies of the same pin drift, and the one Renovate updates is not
+    necessarily the one the build uses.
+    """
+    env_file = ROOT / "versions.env"
+    dockerfile = ROOT / "Dockerfile"
+    if not (env_file.exists() and dockerfile.exists()):
+        return
+
+    env = dict(
+        line.split("=", 1)
+        for line in env_file.read_text(encoding="utf-8").splitlines()
+        if "=" in line and not line.lstrip().startswith("#")
+    )
+    text = dockerfile.read_text(encoding="utf-8")
+
+    for key in ("BASE_IMAGE", "BASE_IMAGE_DIGEST"):
+        if key not in env:
+            continue
+        match = re.search(rf"^ARG {key}=(.+)$", text, re.M)
+        if not match:
+            errors.append(f"Dockerfile: no `ARG {key}=` to compare against versions.env")
+        elif match.group(1).strip() != env[key].strip():
+            errors.append(
+                f"Dockerfile `ARG {key}={match.group(1).strip()}` does not match "
+                f"versions.env `{key}={env[key].strip()}`"
+            )
 
 
 def check_no_committed_binaries(errors: list[str]) -> None:
@@ -323,11 +367,23 @@ def check_bootstrap_left_nothing_behind(errors: list[str]) -> None:
     if (ROOT / "CHECKLIST.md").exists():
         return  # still an unadopted template
 
-    for path in _files(".md", ".yml", ".yaml", ".json", ".toml", ".txt", ".env"):
+    # The same set bootstrap rewrites. Scanning less means a malformed adopted
+    # repository passes validation.
+    extra = {"Dockerfile", "LICENSE", "NOTICE", "CODEOWNERS", "go.mod", ".gitignore"}
+    candidates = [
+        path for path in _files()
+        if path.suffix in {".md", ".yml", ".yaml", ".json", ".toml", ".txt", ".env", ".go", ".py"}
+        or path.name in extra
+    ]
+
+    for path in candidates:
         rel = _rel(path)
         if rel in PLACEHOLDER_DOCS:
             continue
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
 
         found = sorted(set(PLACEHOLDER_RE.findall(text)))
         if found:
@@ -350,6 +406,7 @@ CHECKS = (
     check_local_workflow_calls_resolve,
     check_bootstrap_left_nothing_behind,
     check_no_committed_binaries,
+    check_base_image_pin_matches,
 )
 
 

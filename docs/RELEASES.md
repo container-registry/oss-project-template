@@ -81,9 +81,13 @@ tag: its `version-file` option defaults to empty and the file updater is registe
 Switching to `go` without setting `"version-file"` leaves `version.txt` frozen with nothing replacing it, and
 the version stamped into release binaries goes stale with it.
 
-`exclude-paths` is set to `docs`, so a documentation-only change does not cut a release. The inverse is the
-part that surprises people: a `feat:` whose every changed file sits under an excluded path releases nothing,
-and it reads as release-please being broken rather than as configuration doing its job.
+`exclude-paths` is set to `docs`, so a change confined to that directory does not cut a release. It covers the
+`docs/` tree only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside it, so
+a `docs:` commit touching those still produces a patch release. Add them to `exclude-paths` if that is not what
+you want.
+
+The inverse is the part that surprises people: a `feat:` whose every changed file sits under an excluded path
+releases nothing, and it reads as release-please being broken rather than as configuration doing its job.
 
 Add `extra-files` under `packages["."]` when the same version must be stamped into other files. The included release-assets workflow is a small Go example; customize or remove its call for other project types. Additional post-release jobs use:
 

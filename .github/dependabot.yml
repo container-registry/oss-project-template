@@ -11,6 +11,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      # Do not propose a version published in the last week. A compromised
+      # release is usually yanked well inside that window.
+      default-days: 7
     labels: [dependencies, component/ci]
     commit-message:
       prefix: ci
@@ -19,6 +23,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      # Do not propose a version published in the last week. A compromised
+      # release is usually yanked well inside that window.
+      default-days: 7
     labels: [dependencies]
     commit-message:
       prefix: fix
@@ -33,6 +41,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      # Do not propose a version published in the last week. A compromised
+      # release is usually yanked well inside that window.
+      default-days: 7
     labels: [dependencies]
     commit-message:
       prefix: build

@@ -10,7 +10,7 @@
 ## Using This Template
 
 ```bash
-gh repo create {{ORG_NAME}}/my-project --template {{ORG_NAME}}/{{REPO_NAME}} --private --clone
+gh repo create <your-org>/my-project --template container-registry/oss-project-template --private --clone
 cd my-project
 task bootstrap          # prompts, or pass --org-name etc; --lang=none drops the Go pack
 task check              # the same gates CI runs

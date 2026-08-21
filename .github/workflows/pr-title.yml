@@ -6,11 +6,16 @@ name: PR Title
 # Needs: nothing.
 # Safe to delete if: never, while release-please is in use. The title becomes the squash commit it parses.
 #
-# pull_request, not pull_request_target: the action reads the title straight
-# out of the event payload, so it needs neither a write token nor the base
-# repository's context.
-on:
-  pull_request:
+# DO NOT ADD actions/checkout TO THIS WORKFLOW.
+#
+# pull_request_target, not pull_request: with pull_request, a pull request that
+# edits this file runs its own edited copy, so the check it is supposed to pass
+# can be replaced with one that always succeeds. pull_request_target runs the
+# definition from the base branch instead. The action reads the title from the
+# event payload and never needs the code, so the usual danger of this trigger
+# does not apply here as long as nothing checks out the head.
+on:  # zizmor: ignore[dangerous-triggers]
+  pull_request_target:
     types: [opened, edited, synchronize]
 
 permissions: {}

@@ -43,7 +43,9 @@ jobs:
           set -euo pipefail
           missing=0
           for commit in $(git rev-list "${BASE_SHA}".."${HEAD_SHA}"); do
-            if ! git log -1 --format=%B "$commit" | grep -q "^Signed-off-by:"; then
+            # Requires a name and an address, not just the trailer key: a
+            # bare "Signed-off-by:" line satisfied the previous check.
+            if ! git log -1 --format=%B "$commit" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
               subject=$(git log -1 --format=%s "$commit")
               echo "::error::Missing DCO sign-off: $commit $subject"
               missing=1

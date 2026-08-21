@@ -62,7 +62,9 @@ jobs:
   # Appends the verification commands to the release body. Idempotent: it
   # replaces the marked section rather than appending a second copy.
   document-artifacts:
-    needs: [release-please, publish-image]
+    # publish-release-assets too: the body it writes tells people to verify
+    # app-linux-amd64 and checksums.txt, which that job uploads.
+    needs: [release-please, publish-image, publish-release-assets]
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -80,9 +82,14 @@ jobs:
             const marker = '<!-- artifact-verification -->'
             const { TAG, IMAGE, DIGEST } = process.env
             const ref = `${IMAGE}@${DIGEST}`
+            // Fulcio records the reusable workflow at the ref it was
+            // resolved at. publish-image.yml is called locally from a run on
+            // the default branch, so that ref is refs/heads/main, not the tag.
+            // A regexp keeps the command correct if the release ever runs from
+            // a release branch instead.
             const identity =
-              `https://github.com/${context.repo.owner}/${context.repo.repo}` +
-              `/.github/workflows/publish-image.yml@refs/tags/${TAG}`
+              `^https://github\\.com/${context.repo.owner}/${context.repo.repo}` +
+              `/\\.github/workflows/publish-image\\.yml@`
 
             const section = [
               marker,
@@ -97,7 +104,7 @@ jobs:
               '',
               '```bash',
               `cosign verify ${ref} \\`,
-              `  --certificate-identity ${identity} \\`,
+              `  --certificate-identity-regexp '${identity}' \\`,
               '  --certificate-oidc-issuer https://token.actions.githubusercontent.com',
               '```',
               '',
@@ -105,7 +112,7 @@ jobs:
               '',
               '```bash',
               `cosign verify-attestation --type spdxjson ${ref} \\`,
-              `  --certificate-identity ${identity} \\`,
+              `  --certificate-identity-regexp '${identity}' \\`,
               '  --certificate-oidc-issuer https://token.actions.githubusercontent.com',
               '```',
               '',

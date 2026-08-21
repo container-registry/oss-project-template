@@ -15,6 +15,9 @@ indent_style = tab
 [Makefile]
 indent_style = tab
 
+[*.py]
+indent_size = 4
+
 [*.md]
 # Two trailing spaces are a line break in Markdown.
 trim_trailing_whitespace = false

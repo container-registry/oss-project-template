@@ -25,7 +25,9 @@ on:
 permissions: {}
 
 concurrency:
-  group: codeql-${{ github.event.pull_request.number || github.ref }}
+  # The event name is part of the group so a push cannot cancel the scheduled
+  # run, which is the one that finds new queries against unchanged code.
+  group: codeql-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -52,12 +54,12 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
       - name: Analyze
-        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
         with:
           category: /language:${{ matrix.language }}

@@ -2,7 +2,8 @@
 name: CI
 
 # What: Builds, tests, lints and vulnerability-scans the Go pack.
-# Fires on: pull request and push to main (skipping docs-only changes); weekly for vuln-check.
+# Fires on: pull request and push to main (skipping docs-only changes). vuln-check
+#   also runs weekly, because new advisories land against unchanged code.
 # Needs: nothing. Uses GITHUB_TOKEN only.
 # Safe to delete if: the project is not Go. It also no-ops on its own without go.mod.
 #
@@ -146,7 +147,9 @@ jobs:
       - if: steps.detect.outputs.go == 'true'
         run: task license-check
       - name: License report
-        if: always()
+        # always(), so a failing licence check still produces the report - but
+        # only when the Go pack is present, or there is no `task` to run.
+        if: always() && steps.detect.outputs.go == 'true'
         run: task license-report
 
   vuln-check:

@@ -22,14 +22,18 @@ tasks:
       - python3 .github/scripts/bootstrap.py {{.CLI_ARGS}}
 
   check:
-    desc: Run every gate CI runs
+    # Deliberately not `image` or `vuln-check`: both need the network or a
+    # container runtime and belong in CI, not in a pre-push hook.
+    desc: Run the fast CI gates (everything except the image build and vuln scan)
     cmds:
       - task: spellcheck
       - task: lint:yaml
       - task: lint:actions
+      - task: lint:pins
       - task: lint:repo
       - task: commit-lint
       - task: dco-check
+      - task: build
       - task: lint
       - task: test
       - task: tidy-check
@@ -207,7 +211,26 @@ tasks:
         vars: {GOOS: darwin, GOARCH: arm64}
       - task: _release-asset
         vars: {GOOS: windows, GOARCH: amd64, EXT: .exe}
-      - task: _release-checksums
+      - task: release-checksums
+
+  release-checksums:
+    desc: Checksum everything in dist/ (run again after adding files such as an SBOM)
+    dir: '{{.RELEASE_DIST}}'
+    cmds:
+      - |
+        # Written to a temporary file and moved into place: redirecting
+        # straight to checksums.txt creates it before the glob is expanded, so
+        # the file ends up containing the checksum of its own empty self.
+        # A dotfile, so `./*` does not match it, then moved into place.
+        # Redirecting straight to checksums.txt creates the file before the
+        # glob is expanded, and it ends up checksumming its own empty self.
+        rm -f checksums.txt
+        if command -v sha256sum >/dev/null 2>&1; then
+          sha256sum ./* > .checksums.tmp
+        else
+          shasum -a 256 ./* > .checksums.tmp
+        fi
+        mv .checksums.tmp checksums.txt
 
   _release-asset:
     internal: true
@@ -225,17 +248,6 @@ tasks:
       -o "{{.RELEASE_DIST}}/{{.RELEASE_BINARY}}-{{.GOOS}}-{{.GOARCH}}{{.EXT}}"
       "{{.RELEASE_PACKAGE}}"
 
-  _release-checksums:
-    internal: true
-    dir: '{{.RELEASE_DIST}}'
-    cmds:
-      - |
-        if command -v sha256sum >/dev/null 2>&1; then
-          sha256sum ./* > checksums.txt
-        else
-          shasum -a 256 ./* > checksums.txt
-        fi
-
   # --- Setup ---------------------------------------------------------------
 
   setup:
@@ -250,6 +262,9 @@ tasks:
       - command -v typos >/dev/null || brew install typos-cli || cargo install typos-cli
       - command -v lefthook >/dev/null || brew install lefthook || go install github.com/evilmartians/lefthook@latest
       - command -v yamllint >/dev/null || pip install "yamllint==${YAMLLINT_VERSION}"
+      # repo-lint parses YAML; yamllint pulls PyYAML in, but not necessarily
+      # into the interpreter `python3` resolves to.
+      - python3 -c 'import yaml' 2>/dev/null || pip install pyyaml
       - command -v actionlint >/dev/null || brew install actionlint || go install github.com/rhysd/actionlint/cmd/actionlint@v${ACTIONLINT_VERSION}
       # The Go tools are not installed: `task lint`, `task license-check` and
       # `task vuln-check` fetch them at the pinned version with `go run`.

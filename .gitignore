@@ -1,9 +1,13 @@
-# Build output. `go build ./...` names a binary after its directory, so the
-# repository name itself ends up here.
+# Build output. `task build` writes to bin/. A bare `go build ./...` instead
+# drops a binary named after the directory into the repository root; that one
+# cannot be listed here by name in a template, so repo-lint fails on any
+# committed executable rather than trying to guess the name.
 bin/
 dist/
 *.exe
-/{{REPO_NAME}}
+
+# Workflow script dependencies, installed by `npm ci` in CI only.
+node_modules/
 
 # Test and lint output
 coverage.out

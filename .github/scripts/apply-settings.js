@@ -56,14 +56,10 @@ module.exports = async ({ github, context, core }) => {
       ...securityAndAnalysis
     } = settings.security
 
-    if (Object.keys(securityAndAnalysis).length > 0) {
-      await github.rest.repos.update({ owner, repo, security_and_analysis: securityAndAnalysis })
-    }
-
-    // Both of these are toggled through their own endpoints, and both would
-    // make the PATCH above fail with 422 if left in security_and_analysis.
-    // Alerts go first: they are the precondition for Dependabot security
-    // updates, which the PATCH may have just tried to enable.
+    // Alerts first, and before the PATCH: they are the precondition for
+    // dependabot_security_updates, and enabling the updates without them is
+    // rejected. Both of these live on their own endpoints and would also make
+    // the PATCH fail if left in the security_and_analysis body.
     for (const [value, path] of [
       [alerts, '/repos/{owner}/{repo}/vulnerability-alerts'],
       [pvr, '/repos/{owner}/{repo}/private-vulnerability-reporting']
@@ -71,6 +67,10 @@ module.exports = async ({ github, context, core }) => {
       if (value === undefined) continue
       const enable = value === true || value === 'enabled'
       await github.request(`${enable ? 'PUT' : 'DELETE'} ${path}`, { owner, repo })
+    }
+
+    if (Object.keys(securityAndAnalysis).length > 0) {
+      await github.rest.repos.update({ owner, repo, security_and_analysis: securityAndAnalysis })
     }
     core.info('✓ security')
   }
@@ -242,16 +242,17 @@ module.exports = async ({ github, context, core }) => {
 
     const result = {
       repository: {
-        description: r.description,
+        description: r.description || '',
         homepage: r.homepage || '',
         topics: r.topics,
-        visibility: r.visibility,
         has_issues: r.has_issues,
         has_projects: r.has_projects,
         has_wiki: r.has_wiki,
         has_downloads: r.has_downloads,
         has_discussions: r.has_discussions,
-        is_template: r.is_template,
+        // visibility and is_template are deliberately absent from
+        // settings.yml, so exporting them would report drift on every run
+        // against keys nothing manages.
         default_branch: r.default_branch,
         allow_forking: r.allow_forking,
         allow_squash_merge: r.allow_squash_merge,
@@ -270,7 +271,11 @@ module.exports = async ({ github, context, core }) => {
         default_workflow_permissions: actionsData.default_workflow_permissions,
         can_approve_pull_request_reviews: actionsData.can_approve_pull_request_reviews
       } : undefined,
-      labels: Object.fromEntries(labels.map(l => [l.name, { color: l.color, description: l.description || '' }])),
+      labels: Object.fromEntries(
+        labels
+          .filter(l => !settings.labels || Object.hasOwn(settings.labels, l.name))
+          .map(l => [l.name, { color: l.color, description: l.description || '' }])
+      ),
       security: r.security_and_analysis ? {
         secret_scanning: { status: r.security_and_analysis.secret_scanning?.status },
         secret_scanning_push_protection: { status: r.security_and_analysis.secret_scanning_push_protection?.status },

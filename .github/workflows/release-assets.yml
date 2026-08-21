@@ -63,28 +63,37 @@ jobs:
         if: steps.detect.outputs.go == 'true'
         run: task release-assets
 
-      # An SBOM for the release artifacts, not only for the container image.
-      # Binaries are what most consumers actually download, and a bill of
-      # materials that only covers the image does not describe them.
+      # An SBOM of the built artifacts, not of the checkout. Binaries are
+      # what people download, and a repository-level inventory does not
+      # describe them.
       - name: Generate SBOM
         if: steps.detect.outputs.go == 'true'
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
         with:
-          path: .
+          path: dist
           format: spdx-json
           output-file: dist/sbom.spdx.json
           upload-artifact: false
           upload-release-assets: false
 
+      # After the SBOM, so every published file is covered by checksums.txt.
+      - name: Checksum every artifact
+        if: steps.detect.outputs.go == 'true'
+        run: task release-checksums
+
       - name: Attest build provenance
         if: steps.detect.outputs.go == 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
-          subject-path: dist/app-*
+          subject-path: |
+            dist/app-*
+            dist/sbom.spdx.json
 
+      # gh ships on the runner, so this needs no third-party action in a job
+      # that holds contents: write.
       - name: Upload release assets
         if: steps.detect.outputs.go == 'true'
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2
-        with:
-          tag_name: ${{ inputs.tag_name }}
-          files: dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag_name }}
+        run: gh release upload "$TAG" dist/* --clobber

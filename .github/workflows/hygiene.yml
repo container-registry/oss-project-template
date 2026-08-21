@@ -107,6 +107,11 @@ jobs:
         with:
           persist-credentials: false
 
+      # PyYAML happens to be present on GitHub's runners, but repo-lint needs
+      # it, so it is installed rather than assumed.
+      - name: Install PyYAML
+        run: pip install --disable-pip-version-check pyyaml
+
       - name: Check repository consistency
         run: python3 .github/scripts/repo-lint.py
 
@@ -286,10 +291,10 @@ jobs:
                 --maintainer-name "Ada Lovelace" --maintainer-github ada \
                 --security-email security@acme.test \
                 --conduct-email conduct@acme.test \
-                --homepage-url "" --docs-url "" --slack-url "" \
+                --homepage-url "$home" --docs-url "$docs" --slack-url "$slack" \
                 --lang "$lang"
 
-              echo "::group::lang=$lang assertions"
+              echo "::group::lang=$lang optional=$optional assertions"
 
               # repo-lint is what asserts the result: no placeholder or
               # marker survived, no reference dangles, no workflow_call points
@@ -301,11 +306,13 @@ jobs:
               echo "::endgroup::"
             )
             rm -rf "$work"
-            echo "lang=$lang rehearsal passed"
+            echo "lang=$lang optional=$optional rehearsal passed"
           }
 
-          rehearse go
-          rehearse none
+          rehearse go blank
+          rehearse go filled
+          rehearse none blank
+          rehearse none filled
 
   # The single context that is safe to mark required in a branch ruleset.
   #

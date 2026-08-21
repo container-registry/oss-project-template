@@ -16,12 +16,12 @@ func main() {
 	showVersion := flag.Bool("version", false, "print the version and exit")
 	flag.Parse()
 
+	out := greeting()
 	if *showVersion {
-		fmt.Println(version)
-		return
+		out = version
 	}
 
-	if _, err := fmt.Fprintln(os.Stdout, greeting()); err != nil {
+	if _, err := fmt.Fprintln(os.Stdout, out); err != nil {
 		fmt.Fprintln(os.Stderr, "write failed:", err)
 		os.Exit(1)
 	}
