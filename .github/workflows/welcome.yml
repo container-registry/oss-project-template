@@ -34,7 +34,9 @@ jobs:
             Thanks for opening your first issue! 🎉
 
             A maintainer will review this soon. In the meantime:
+            <!-- if:DOCS_URL -->
             - Check our [documentation]({{DOCS_URL}}) for common solutions
+            <!-- endif -->
             - Search [existing issues](https://github.com/${{ github.repository }}/issues) for similar reports
 
             If this is a question rather than a bug report, the [question form](https://github.com/${{ github.repository }}/issues/new?template=question.yml) collects what a maintainer needs to answer it.

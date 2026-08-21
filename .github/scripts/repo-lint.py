@@ -18,9 +18,11 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
-# Files that legitimately still contain {{PLACEHOLDER}} markers after adoption,
-# because they document the placeholder mechanism itself.
-PLACEHOLDER_DOCS = {"README.md", "CHECKLIST.md", "docs/ADOPTION.md"}
+# Files that would legitimately still contain placeholder markers after
+# adoption because they document the mechanism itself. Empty on purpose:
+# bootstrap deletes CHECKLIST.md, and nothing else explains placeholders in
+# prose any more. Add a path here only with a reason.
+PLACEHOLDER_DOCS: set[str] = set()
 
 PLACEHOLDER_RE = re.compile(r"\{\{[A-Z][A-Z0-9_]*\}\}")
 SKIP_DIRS = {".git", "node_modules", "dist", "bin", ".task", "vendor"}
@@ -164,7 +166,9 @@ def check_referenced_paths_exist(errors: list[str]) -> None:
             return
         if pathlib.PurePath(ref).suffix not in KNOWN_SUFFIXES:
             return
-        if (ROOT / ref).exists():
+        # A link resolves relative to the file that contains it; a path written
+        # in a table is usually relative to the repository root. Accept either.
+        if (path.parent / ref).exists() or (ROOT / ref).exists():
             return
         errors.append(f"{_rel(path)}: references {ref!r}, which does not exist")
 
@@ -180,6 +184,49 @@ def check_referenced_paths_exist(errors: list[str]) -> None:
                 for match in cell.finditer(line):
                     if "/" in match.group(1) and match.group(1).split("/", 1)[0] in owned:
                         flag(path, match.group(1))
+
+
+def check_local_workflow_calls_resolve(errors: list[str]) -> None:
+    """A `uses: ./.github/workflows/x.yml` must point at a file that exists.
+
+    Removing an optional pack used to leave the caller behind, which takes the
+    whole calling workflow down rather than just the removed job.
+    """
+    workflows = ROOT / ".github/workflows"
+    if not workflows.is_dir():
+        return
+
+    local = re.compile(r"uses:\s*(\./[A-Za-z0-9._/-]+)")
+    for path in sorted(workflows.glob("*.y*ml")):
+        for match in local.finditer(path.read_text(encoding="utf-8")):
+            ref = match.group(1)[2:]
+            target = ROOT / ref
+            # A composite action is referenced by its directory.
+            if target.is_file() or (target.is_dir() and (target / "action.yml").is_file()):
+                continue
+            errors.append(f"{_rel(path)}: calls {match.group(1)!r}, which does not exist")
+
+
+def check_issue_template_config(errors: list[str]) -> None:
+    """Every contact link needs name, url and about.
+
+    Removing an optional URL used to leave the surrounding entry behind, and
+    GitHub rejects the whole chooser rather than just that link.
+    """
+    import yaml
+
+    config = ROOT / ".github/ISSUE_TEMPLATE/config.yml"
+    if not config.exists():
+        return
+
+    doc = yaml.safe_load(config.read_text(encoding="utf-8")) or {}
+    for index, link in enumerate(doc.get("contact_links") or []):
+        missing = [key for key in ("name", "url", "about") if not (link or {}).get(key)]
+        if missing:
+            name = (link or {}).get("name", f"#{index}")
+            errors.append(
+                f".github/ISSUE_TEMPLATE/config.yml: contact link {name!r} is missing {', '.join(missing)}"
+            )
 
 
 def check_pr_target_never_checks_out(errors: list[str]) -> None:
@@ -216,22 +263,37 @@ def check_pr_target_never_checks_out(errors: list[str]) -> None:
                     )
 
 
-def check_no_unreplaced_placeholders(errors: list[str]) -> None:
-    """After `task bootstrap` no placeholder may survive outside the docs.
+# Markers bootstrap is supposed to consume. Written as split literals so this
+# file never matches its own patterns.
+MARKER_RES = (
+    re.compile(r"<!--\s*template-only:(?:start|end)\s*-->"),
+    re.compile(r"<!--\s*(?:if:[A-Z_]+|endif)\s*-->"),
+    re.compile(r"^\s*#\s*(?:if:[A-Z_]+|endif)\s*$", re.M),
+)
 
-    In the template repository itself every file still holds placeholders, so
-    the check is a no-op until the marker file is gone.
+
+def check_bootstrap_left_nothing_behind(errors: list[str]) -> None:
+    """After bootstrap, no placeholder and no bootstrap marker may survive.
+
+    In the template repository itself everything still holds placeholders, so
+    the check is a no-op until the CHECKLIST.md marker file is gone.
     """
     if (ROOT / "CHECKLIST.md").exists():
-        return  # still the unadopted template
+        return  # still an unadopted template
 
     for path in _files(".md", ".yml", ".yaml", ".json", ".toml", ".txt", ".env"):
         rel = _rel(path)
         if rel in PLACEHOLDER_DOCS:
             continue
-        found = sorted(set(PLACEHOLDER_RE.findall(path.read_text(encoding="utf-8"))))
+        text = path.read_text(encoding="utf-8")
+
+        found = sorted(set(PLACEHOLDER_RE.findall(text)))
         if found:
             errors.append(f"{rel}: unreplaced placeholder(s): {', '.join(found)}")
+
+        for pattern in MARKER_RES:
+            for match in pattern.findall(text):
+                errors.append(f"{rel}: bootstrap marker left behind: {match.strip()!r}")
 
 
 CHECKS = (
@@ -242,7 +304,9 @@ CHECKS = (
     check_version_file_matches_manifest,
     check_referenced_paths_exist,
     check_pr_target_never_checks_out,
-    check_no_unreplaced_placeholders,
+    check_issue_template_config,
+    check_local_workflow_calls_resolve,
+    check_bootstrap_left_nothing_behind,
 )
 
 

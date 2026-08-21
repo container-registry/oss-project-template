@@ -23,7 +23,9 @@ The project board provides:
 ### Discussing Roadmap
 
 - Comment on the issue or proposal you care about
+<!-- if:SLACK_URL -->
 - Join our community chat: {{SLACK_URL}}
+<!-- endif -->
 
 ## Release Cadence
 

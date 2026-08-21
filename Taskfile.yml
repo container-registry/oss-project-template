@@ -15,6 +15,12 @@ tasks:
   default:
     cmds: [task --list]
 
+  bootstrap:
+    desc: Turn the template into a project (prompts, or pass flags - see --help)
+    interactive: true
+    cmds:
+      - python3 .github/scripts/bootstrap.py {{.CLI_ARGS}}
+
   check:
     desc: Run every gate CI runs
     cmds:

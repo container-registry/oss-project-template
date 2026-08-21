@@ -2,18 +2,22 @@
 
 Welcome! This document outlines how to get help.
 
+<!-- if:DOCS_URL -->
 ## Documentation
 
 - **Official Docs**: {{DOCS_URL}}
+<!-- endif -->
 
 ## Questions
 
 Ask in an issue. There is one inbox on purpose, so nothing sits unanswered in a second one:
 https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=question.yml
 
+<!-- if:SLACK_URL -->
 ### Chat
 
 {{SLACK_URL}}
+<!-- endif -->
 
 ## Reporting Issues
 

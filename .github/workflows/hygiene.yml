@@ -221,6 +221,92 @@ jobs:
           deny-licenses: GPL-3.0, AGPL-3.0
           comment-summary-in-pr: always
 
+  # Exercises the template AS a template.
+  #
+  # Every gate above reads files. This one rehearses the adopter's path:
+  # bootstrap a scratch copy and assert the result is a clean repository. It is
+  # the only check that can catch an interaction between two individually
+  # correct things - a link to a file bootstrap deletes, an optional value that
+  # leaves an orphaned heading, a removed pack that leaves a dangling
+  # workflow_call.
+  #
+  # Safe to delete once the repository is no longer a template; it skips itself
+  # automatically as soon as the bootstrap script is gone.
+  bootstrap-rehearsal:
+    name: Bootstrap Rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: detect
+        run: |
+          if [ -f .github/scripts/bootstrap.py ]; then
+            echo "template=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "template=false" >> "$GITHUB_OUTPUT"
+            echo "Not a template any more. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Install yamllint and actionlint
+        if: steps.detect.outputs.template == 'true'
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          pip install --disable-pip-version-check "yamllint==${YAMLLINT_VERSION}"
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" -o /tmp/actionlint.tar.gz
+          echo "${ACTIONLINT_SHA256_LINUX_AMD64}  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin --no-same-owner actionlint
+
+      # Both adoption paths, including the one that removes the Go pack, since
+      # that is where dangling references appear.
+      - name: Rehearse both adoption paths
+        if: steps.detect.outputs.template == 'true'
+        run: |
+          set -euo pipefail
+
+          rehearse() {
+            lang="$1"
+            work="$(mktemp -d)"
+            tar -c --exclude=.git . | tar -x -C "$work"
+
+            (
+              cd "$work"
+              # actionlint refuses to run outside a repository.
+              git init -q .
+              python3 .github/scripts/bootstrap.py \
+                --org-name acme --repo-name widget \
+                --repo-description "A widget service" \
+                --copyright-holder "Acme Inc" --copyright-year 2026 \
+                --maintainer-name "Ada Lovelace" --maintainer-github ada \
+                --security-email security@acme.test \
+                --conduct-email conduct@acme.test \
+                --homepage-url "" --docs-url "" --slack-url "" \
+                --lang "$lang"
+
+              echo "::group::lang=$lang assertions"
+
+              # repo-lint is what asserts the result: no placeholder or
+              # marker survived, no reference dangles, no workflow_call points
+              # at a file the pack removal deleted.
+              python3 .github/scripts/repo-lint.py
+              yamllint --strict .
+              actionlint
+
+              echo "::endgroup::"
+            )
+            rm -rf "$work"
+            echo "lang=$lang rehearsal passed"
+          }
+
+          rehearse go
+          rehearse none
+
   # The single context that is safe to mark required in a branch ruleset.
   #
   # A path-filtered workflow never reports on a pull request that misses its
@@ -230,7 +316,7 @@ jobs:
   required-checks:
     name: required-checks
     if: always()
-    needs: [typos, actionlint, yamllint, repo-lint, zizmor, pinned-actions, dependency-review]
+    needs: [typos, actionlint, yamllint, repo-lint, zizmor, pinned-actions, dependency-review, bootstrap-rehearsal]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions: {}
