@@ -1,30 +1,45 @@
+---
 name: Welcome
 
-on:
+# What: Greets a first-time issue or pull request author.
+# Fires on: first issue or first pull request from an author.
+# Needs: nothing.
+# Safe to delete if: the project does not want an automated greeting.
+#
+# DO NOT ADD actions/checkout TO THIS WORKFLOW.
+# pull_request_target runs in the base repository's context with a writable
+# token. Checking out the pull request head here executes a fork's code with
+# that token, which is remote code execution against this repository.
+# The trigger is required because a fork pull request must still be greeted.
+on:  # zizmor: ignore[dangerous-triggers]
   issues:
     types: [opened]
   pull_request_target:
     types: [opened]
 
-permissions:
-  issues: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   welcome:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      pull-requests: write
     steps:
-      - uses: actions/first-interaction@v1
+      - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d  # v3.1.0
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           issue-message: |
             Thanks for opening your first issue! 🎉
 
             A maintainer will review this soon. In the meantime:
+            <!-- if:DOCS_URL -->
             - Check our [documentation]({{DOCS_URL}}) for common solutions
+            <!-- endif -->
             - Search [existing issues](https://github.com/${{ github.repository }}/issues) for similar reports
 
-            If this is a question rather than a bug report, consider posting in [GitHub Discussions](https://github.com/${{ github.repository }}/discussions) instead.
+            If this is a question rather than a bug report, the [question form](https://github.com/${{ github.repository }}/issues/new?template=question.yml) collects what a maintainer needs to answer it.
 
           pr-message: |
             Thanks for your first pull request! 🎉

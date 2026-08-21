@@ -13,16 +13,26 @@
 # Reference: https://docs.github.com/en/rest/repos
 
 repository:
-  description: GitHub repository configuration and automation templates for open source projects.
+  # Everything here is PATCHed onto the repository on the first push to main.
+  # Two keys are deliberately absent and must stay absent:
+  #   visibility  - a private repository created from this template would
+  #                 publish itself, which cannot be undone.
+  #   is_template - every repository created from the template would itself
+  #                 become a template.
+  # Leave description and topics empty rather than inheriting the template's.
+  description: ""
   homepage: ""
   topics: []
-  visibility: public
   has_issues: true
   has_projects: true
   has_wiki: false
   has_downloads: true
+  # One support surface, deliberately. Discussions is a second inbox, and an
+  # unanswered discussion reads worse than not offering one. Questions go
+  # through .github/ISSUE_TEMPLATE/question.yml instead. To switch: set this
+  # true, restore the Discussions contact link in ISSUE_TEMPLATE/config.yml,
+  # and delete question.yml.
   has_discussions: false
-  is_template: true
   default_branch: main
   allow_forking: true
   allow_squash_merge: true
@@ -32,7 +42,11 @@ repository:
   allow_auto_merge: false
   allow_update_branch: true
   squash_merge_commit_title: PR_TITLE
-  squash_merge_commit_message: PR_BODY
+  # COMMIT_MESSAGES, not PR_BODY. Under squash-only merging the pull request
+  # body becomes the commit body, and a pull request body carries no
+  # Signed-off-by trailer - so main ends up with zero DCO sign-offs while the
+  # README claims every commit has one. This carries the branch trailers over.
+  squash_merge_commit_message: COMMIT_MESSAGES
   merge_commit_title: MERGE_MESSAGE
   merge_commit_message: PR_TITLE
   web_commit_signoff_required: false
@@ -55,9 +69,9 @@ labels:
   component/ci:
     color: c5def5
     description: CI/CD related
-  component/docs:
+  component/config:
     color: c5def5
-    description: Documentation related
+    description: Configuration related
   dependencies:
     color: 0366d6
     description: Dependencies update
@@ -67,6 +81,9 @@ labels:
   documentation:
     color: 0075ca
     description: Improvements or additions to documentation
+  tests:
+    color: bfd4f2
+    description: Test coverage or test infrastructure
   enhancement:
     color: a2eeef
     description: New feature or request
@@ -134,33 +151,79 @@ labels:
     description: Build system changes
 
 security:
+  # Secret scanning and push protection are free on public repositories and
+  # this is the organisation default for new ones. Push protection is the one
+  # that matters: it blocks the commit rather than reporting it afterwards.
+  # On a private repository both require GitHub Advanced Security.
   secret_scanning:
-    status: disabled
+    status: enabled
   secret_scanning_push_protection:
-    status: disabled
+    status: enabled
+  # Alerts are the precondition for security updates; declaring the updates
+  # without the alerts silently does nothing.
+  vulnerability_alerts: enabled
   dependabot_security_updates:
     status: enabled
+  # Makes the "report a vulnerability" button real. SECURITY.md and the issue
+  # template chooser both link to the advisory form, which errors without this.
+  private_vulnerability_reporting: enabled
 
 code_scanning:
+  # Set to `configured` to turn on CodeQL default setup. The template instead
+  # ships .github/workflows/codeql.yml, which is the advanced setup; running
+  # both duplicates every alert.
   state: not-configured
   query_suite: default  # default, extended
   languages: [actions, go]
 
-# rulesets:
-#   require-pr:
-#     target: branch
-#     enforcement: active
-#     bypass_actors: []
-#     conditions:
-#       ref_name:
-#         include: [refs/heads/main]
-#         exclude: []
-#     rules:
-#       - type: pull_request
-#         parameters:
-#           required_approving_review_count: 1
-#           dismiss_stale_reviews_on_push: true
-#           require_code_owner_review: false
+rulesets:
+  # Shipped active. A project that does not want it deletes this block, which
+  # is a decision someone makes on purpose rather than one nobody ever gets to.
+  # Bypass nobody: a rule an admin routinely walks around is not a rule.
+  protect-default-branch:
+    target: branch
+    enforcement: active
+    bypass_actors: []
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+    rules:
+      - type: deletion
+      - type: non_fast_forward  # blocks force pushes
+      - type: pull_request
+        parameters:
+          # Zero, not one. The rule that matters is that everything goes
+          # through a pull request with green checks; requiring an approval a
+          # solo maintainer cannot give themselves is how this whole block
+          # ends up deleted. Raise it to 1 as soon as there are two
+          # maintainers who can review each other.
+          required_approving_review_count: 0
+          dismiss_stale_reviews_on_push: true
+          require_code_owner_review: false
+          require_last_push_approval: false
+          required_review_thread_resolution: false
+          allowed_merge_methods: [squash]
+      # No required_status_checks, deliberately. GitHub raises no workflow
+      # events for a ref pushed with GITHUB_TOKEN, so the `chore: release`
+      # pull request that release-please opens gets zero runs - and any
+      # required context then blocks it forever. Verified on this repository:
+      # the release pull request had no workflow runs at all.
+      #
+      # Two prerequisites before uncommenting the block below:
+      #   1. release-please must open its pull request with a GitHub App token
+      #      (actions/create-github-app-token) rather than GITHUB_TOKEN.
+      #   2. Only require the aggregate `required-checks` context. A
+      #      path-filtered workflow never reports on a pull request that misses
+      #      its filter, and the check sits at "Expected" forever.
+      #
+      # - type: required_status_checks
+      #   parameters:
+      #     strict_required_status_checks_policy: true
+      #     do_not_enforce_on_create: false
+      #     required_status_checks:
+      #       - context: required-checks
+      #       - context: DCO
 
 # branches:
 #   main:

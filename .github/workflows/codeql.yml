@@ -1,0 +1,65 @@
+---
+name: CodeQL
+
+# What: Static analysis for the workflows and the Go code.
+# Fires on: pull request and push to main, plus a weekly cron.
+# Needs: nothing on a public repo. A private repo needs GitHub Advanced Security.
+# Safe to delete if: the repo is private without Advanced Security, or the languages do not apply.
+#
+# Advanced setup, so the query configuration lives in the repository and is
+# reviewable. Do not also enable code scanning default setup in
+# .github/settings.yml: running both duplicates every alert.
+#
+# Drop a language from the matrix when the project does not use it. `actions`
+# is worth keeping even for a non-Go project: it analyses the workflows.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # New queries find old code, so this cannot only run on push.
+    - cron: '25 3 * * 2'
+
+permissions: {}
+
+concurrency:
+  # The event name is part of the group so a push cannot cancel the scheduled
+  # run, which is the one that finds new queries against unchanged code.
+  group: codeql-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze ${{ matrix.language }}
+    if: ${{ !github.event.repository.fork }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: go
+            build-mode: autobuild
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
+        with:
+          category: /language:${{ matrix.language }}

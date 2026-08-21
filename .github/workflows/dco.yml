@@ -1,0 +1,63 @@
+---
+name: DCO
+
+# What: Fails a pull request whose commits are not signed off.
+# Fires on: every pull request.
+# Needs: nothing.
+# Safe to delete if: the project does not require the Developer Certificate of Origin.
+#
+# In-repo Developer Certificate of Origin gate.
+#
+# The dco2 GitHub App gives nicer remediation UX, but it is an app somebody has
+# to remember to install. This runs in the repository, so the gate exists from
+# the first pull request. Same check as `task dco-check`.
+
+on:
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: dco-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dco:
+    name: dco
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The full range between the base and the head must be readable.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check every commit is signed off
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for commit in $(git rev-list "${BASE_SHA}".."${HEAD_SHA}"); do
+            # Requires a name and an address, not just the trailer key: a
+            # bare "Signed-off-by:" line satisfied the previous check.
+            if ! git log -1 --format=%B "$commit" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
+              subject=$(git log -1 --format=%s "$commit")
+              echo "::error::Missing DCO sign-off: $commit $subject"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            echo ""
+            echo "Every commit needs a Signed-off-by trailer certifying the DCO"
+            echo "(https://developercertificate.org/)."
+            echo ""
+            echo "  Last commit:  git commit --amend -s && git push --force-with-lease"
+            echo "  Whole branch: git rebase --signoff origin/main && git push --force-with-lease"
+            exit 1
+          fi
+          echo "All commits are signed off."

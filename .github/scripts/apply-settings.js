@@ -1,9 +1,11 @@
 const fs = require('fs')
-const yaml = require('js-yaml')
 
 module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo
-  const settings = yaml.load(fs.readFileSync('.github/settings.yml', 'utf8'))
+  // Converted from .github/settings.yml to JSON by the workflow step before
+  // this one. Parsing the YAML here would mean an npm dependency in the one
+  // job that can hold an administration token.
+  const settings = JSON.parse(fs.readFileSync(process.env.SETTINGS_JSON, 'utf8'))
   const mode = process.env.INPUT_MODE || (context.eventName === 'schedule' ? 'check' : 'verify')
   core.info(`Mode: ${mode}`)
 
@@ -32,7 +34,7 @@ module.exports = async ({ github, context, core }) => {
   // Apply labels (create or update)
   async function applyLabels() {
     if (!settings.labels) return
-    const { data: existing } = await github.rest.issues.listLabelsForRepo({ owner, repo, per_page: 100 })
+    const existing = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 })
     const existingNames = new Set(existing.map(l => l.name))
     for (const [name, config] of Object.entries(settings.labels)) {
       if (existingNames.has(name)) {
@@ -44,10 +46,34 @@ module.exports = async ({ github, context, core }) => {
     core.info('✓ labels')
   }
 
-  // Apply security settings
+  // Apply security settings.
+  //
+  // private_vulnerability_reporting is not part of security_and_analysis; it
+  // has its own endpoint, so it is split out before the rest is passed on.
   async function applySecurity() {
     if (!settings.security) return
-    await github.rest.repos.update({ owner, repo, security_and_analysis: settings.security })
+    const {
+      private_vulnerability_reporting: pvr,
+      vulnerability_alerts: alerts,
+      ...securityAndAnalysis
+    } = settings.security
+
+    // Alerts first, and before the PATCH: they are the precondition for
+    // dependabot_security_updates, and enabling the updates without them is
+    // rejected. Both of these live on their own endpoints and would also make
+    // the PATCH fail if left in the security_and_analysis body.
+    for (const [value, path] of [
+      [alerts, '/repos/{owner}/{repo}/vulnerability-alerts'],
+      [pvr, '/repos/{owner}/{repo}/private-vulnerability-reporting']
+    ]) {
+      if (value === undefined) continue
+      const enable = value === true || value === 'enabled'
+      await github.request(`${enable ? 'PUT' : 'DELETE'} ${path}`, { owner, repo })
+    }
+
+    if (Object.keys(securityAndAnalysis).length > 0) {
+      await github.rest.repos.update({ owner, repo, security_and_analysis: securityAndAnalysis })
+    }
     core.info('✓ security')
   }
 
@@ -151,7 +177,9 @@ module.exports = async ({ github, context, core }) => {
     }
 
     const { data: r } = await github.rest.repos.get({ owner, repo })
-    const { data: labels } = await github.rest.issues.listLabelsForRepo({ owner, repo, per_page: 100 })
+    // Paginate: a single page caps at 100 and the missing labels then read as
+    // permanent drift.
+    const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 })
 
     let actionsData
     try {
@@ -159,6 +187,27 @@ module.exports = async ({ github, context, core }) => {
       actionsData = actions.data
     } catch (e) {
       markIfForbidden('actions', e)
+    }
+
+    let pvrEnabled
+    try {
+      const pvr = await github.request('GET /repos/{owner}/{repo}/private-vulnerability-reporting', { owner, repo })
+      pvrEnabled = pvr.data.enabled ? 'enabled' : 'disabled'
+    } catch (e) {
+      markIfForbidden('security', e)
+    }
+
+    // This endpoint answers 204 when enabled and 404 when not, with no body.
+    let alertsEnabled
+    try {
+      await github.request('GET /repos/{owner}/{repo}/vulnerability-alerts', { owner, repo })
+      alertsEnabled = 'enabled'
+    } catch (e) {
+      if (e.status === 404) {
+        alertsEnabled = 'disabled'
+      } else {
+        markIfForbidden('security', e)
+      }
     }
 
     let codeScanningData = {}
@@ -195,16 +244,17 @@ module.exports = async ({ github, context, core }) => {
 
     const result = {
       repository: {
-        description: r.description,
+        description: r.description || '',
         homepage: r.homepage || '',
         topics: r.topics,
-        visibility: r.visibility,
         has_issues: r.has_issues,
         has_projects: r.has_projects,
         has_wiki: r.has_wiki,
         has_downloads: r.has_downloads,
         has_discussions: r.has_discussions,
-        is_template: r.is_template,
+        // visibility and is_template are deliberately absent from
+        // settings.yml, so exporting them would report drift on every run
+        // against keys nothing manages.
         default_branch: r.default_branch,
         allow_forking: r.allow_forking,
         allow_squash_merge: r.allow_squash_merge,
@@ -223,11 +273,17 @@ module.exports = async ({ github, context, core }) => {
         default_workflow_permissions: actionsData.default_workflow_permissions,
         can_approve_pull_request_reviews: actionsData.can_approve_pull_request_reviews
       } : undefined,
-      labels: Object.fromEntries(labels.map(l => [l.name, { color: l.color, description: l.description || '' }])),
+      labels: Object.fromEntries(
+        labels
+          .filter(l => !settings.labels || Object.hasOwn(settings.labels, l.name))
+          .map(l => [l.name, { color: l.color, description: l.description || '' }])
+      ),
       security: r.security_and_analysis ? {
         secret_scanning: { status: r.security_and_analysis.secret_scanning?.status },
         secret_scanning_push_protection: { status: r.security_and_analysis.secret_scanning_push_protection?.status },
-        dependabot_security_updates: { status: r.security_and_analysis.dependabot_security_updates?.status }
+        dependabot_security_updates: { status: r.security_and_analysis.dependabot_security_updates?.status },
+        vulnerability_alerts: alertsEnabled,
+        private_vulnerability_reporting: pvrEnabled
       } : undefined,
       code_scanning: codeScanningData.state ? {
         state: codeScanningData.state,

@@ -1,15 +1,16 @@
 blank_issues_enabled: false
 
 contact_links:
-  - name: GitHub Discussions
-    url: https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/discussions
-    about: Ask questions and discuss with the community
+  # if:DOCS_URL
   - name: Documentation
-    url: {{DOCS_URL}}
+    url: "{{DOCS_URL}}"
     about: Check our documentation for guides and references
+  # endif
+  # if:SLACK_URL
   - name: Slack Community
-    url: {{SLACK_URL}}
+    url: "{{SLACK_URL}}"
     about: Chat with the community in real-time
+  # endif
   - name: Security Vulnerability
     url: https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/security/advisories/new
     about: Report security vulnerabilities privately

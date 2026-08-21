@@ -22,8 +22,10 @@ The project board provides:
 
 ### Discussing Roadmap
 
-- Participate in [GitHub Discussions](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/discussions)
+- Comment on the issue or proposal you care about
+<!-- if:SLACK_URL -->
 - Join our community chat: {{SLACK_URL}}
+<!-- endif -->
 
 ## Release Cadence
 

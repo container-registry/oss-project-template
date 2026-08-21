@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(task:*)",
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(yamllint:*)",
+      "Bash(actionlint:*)",
+      "Bash(typos:*)",
+      "Bash(lefthook:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh workflow view:*)"
+    ]
+  }
+}

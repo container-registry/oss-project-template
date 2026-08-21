@@ -1,5 +1,9 @@
 name: OpenSSF Scorecard
 
+# What: Scores the repository against OpenSSF Scorecard.
+# Fires on: weekly cron, push to main, and branch protection changes.
+# Needs: nothing to run. SCORECARD_TOKEN (classic PAT) to also score Branch-Protection.
+# Safe to delete if: the repository is private, where it skips itself anyway.
 on:
   branch_protection_rule:
   schedule:
@@ -8,30 +12,44 @@ on:
     branches:
       - main
 
-permissions: read-all
+permissions: {}
 
 jobs:
   analysis:
     name: Scorecard Analysis
+    # Scorecard scores the canonical repository; a fork would publish results
+    # for a repository nobody is looking at.
+    # Scorecard needs a public repository: it reads public metadata and the
+    # SARIF upload needs Advanced Security. Skip rather than fail elsewhere.
+    if: ${{ !github.event.repository.fork && github.event.repository.visibility == 'public' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
+      contents: read
+      # Uploading SARIF and publishing to the OpenSSF API.
       security-events: write
       id-token: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
 
       - name: Run Scorecard
-        uses: ossf/scorecard-action@v2.4.0
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc  # v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
-          publish_results: true
+          # Publishes the score to the public OpenSSF API and enables the
+          # badge. Turn it on once the score is one you want cited.
+          publish_results: false
+          # Branch-Protection and a few other checks cannot be scored with
+          # GITHUB_TOKEN. Add a classic PAT with repo scope as SCORECARD_TOKEN
+          # to include them.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Upload results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
         with:
           sarif_file: results.sarif

@@ -1,4 +1,14 @@
+---
 name: Release Assets
+
+# What: Builds, attests and uploads the release binaries and their SBOM.
+# Fires on: called by release-please.yml after a release is created.
+# Needs: nothing.
+# Safe to delete if: the project publishes no binaries. It also no-ops on its own without go.mod; remove the caller in release-please.yml if deleted.
+#
+# Called by release-please.yml once a release exists. It is not triggered by
+# `release: published`, because a release created with GITHUB_TOKEN does not
+# fire workflow events - that is why the previous version never ran.
 
 on:
   workflow_call:
@@ -22,26 +32,68 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
+      # Build provenance is signed with a short-lived OIDC identity, so there
+      # is no key to store or rotate.
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ inputs.tag_name }}
           persist-credentials: false
 
-      - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
-        with:
-          go-version-file: go.mod
-          cache: false
 
-      - name: Set up Task
-        uses: arduino/setup-task@c0bc642852239c2689f73f4ea6459c29405f3c52 # v3.0.0
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
+      - uses: ./.github/actions/setup
+        if: steps.detect.outputs.go == 'true'
+
+      # Build commands live in Taskfile.yml so they can be run locally.
       - name: Build release assets
+        if: steps.detect.outputs.go == 'true'
         run: task release-assets
 
-      - name: Upload release assets
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+      # An SBOM of the built artifacts, not of the checkout. Binaries are
+      # what people download, and a repository-level inventory does not
+      # describe them.
+      - name: Generate SBOM
+        if: steps.detect.outputs.go == 'true'
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
         with:
-          tag_name: ${{ inputs.tag_name }}
-          files: dist/*
+          path: dist
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      # After the SBOM, so every published file is covered by checksums.txt.
+      - name: Checksum every artifact
+        if: steps.detect.outputs.go == 'true'
+        run: task release-checksums
+
+      - name: Attest build provenance
+        if: steps.detect.outputs.go == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
+        with:
+          subject-path: |
+            dist/app-*
+            dist/sbom.spdx.json
+
+      # gh ships on the runner, so this needs no third-party action in a job
+      # that holds contents: write.
+      - name: Upload release assets
+        if: steps.detect.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag_name }}
+        run: gh release upload "$TAG" dist/* --clobber

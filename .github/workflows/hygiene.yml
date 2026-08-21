@@ -1,0 +1,359 @@
+---
+name: Hygiene
+
+# What: Language-neutral repository gates: spelling, workflow lint, workflow security, dependency review.
+# Fires on: every pull request and push to main.
+# Needs: nothing. zizmor's SARIF upload needs a public repo or Advanced Security, and skips otherwise.
+# Safe to delete if: never. This is the gate the rest of the template relies on.
+#
+# Language-specific build and test gates live in ci.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: hygiene-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typos:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install typos
+        run: |
+          set -euo pipefail
+          # versions.env is the single source of truth for the pin and the checksum.
+          . ./versions.env
+
+          # The checksum in versions.env covers the x86_64 musl asset only,
+          # which is what ubuntu-latest provides. Fail loudly anywhere else
+          # rather than silently skipping verification.
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "::error::TYPOS_SHA256_LINUX_X86_64 is pinned for x86_64 only; runner is $(uname -m)"
+            exit 1
+          fi
+
+          url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL "$url" -o /tmp/typos.tar.gz
+          echo "${TYPOS_SHA256_LINUX_X86_64}  /tmp/typos.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/typos.tar.gz -C /usr/local/bin --strip-components=1 --no-same-owner ./typos
+
+      - name: Check spelling
+        run: typos --config .typos.toml
+
+  actionlint:
+    name: Lint Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" -o /tmp/actionlint.tar.gz
+          echo "${ACTIONLINT_SHA256_LINUX_AMD64}  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin --no-same-owner actionlint
+
+      - name: Run actionlint
+        run: actionlint -color
+
+  yamllint:
+    name: Lint YAML
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install yamllint
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          pip install --disable-pip-version-check "yamllint==${YAMLLINT_VERSION}"
+
+      - name: Run yamllint
+        run: yamllint --strict .
+
+  repo-lint:
+    name: Repository Consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # PyYAML happens to be present on GitHub's runners, but repo-lint needs
+      # it, so it is installed rather than assumed.
+      - name: Install PyYAML
+        run: pip install --disable-pip-version-check pyyaml
+
+      - name: Check repository consistency
+        run: python3 .github/scripts/repo-lint.py
+
+  zizmor:
+    name: Audit Workflow Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # SARIF upload needs security-events: write. On a private repository
+      # without GitHub Advanced Security this upload fails; drop the zizmor job
+      # or set `advanced-security: false` there.
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Read the pinned zizmor version
+        id: pin
+        run: echo "version=$(grep '^ZIZMOR_VERSION=' versions.env | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054  # v0.6.2
+        with:
+          inputs: .
+          online-audits: true
+          persona: regular
+          # The action defaults to `latest`; pinned so a new rule release
+          # cannot red main without a commit.
+          version: ${{ steps.pin.outputs.version }}
+          # SARIF upload needs GitHub Advanced Security, which a private
+          # repository does not have by default. Findings still fail the job.
+          advanced-security: ${{ github.event.repository.visibility == 'public' }}
+
+  pinned-actions:
+    name: Check Action Pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Every action must be pinned to a full SHA with a version comment
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r file; do
+            # `|| [ -n "$line" ]` still handles a final line with no trailing newline
+            while IFS= read -r line || [ -n "$line" ]; do
+              # Anchor on the YAML key: a bare `*uses:*` glob also matches
+              # shell text inside this very script.
+              printf '%s' "$line" | grep -qE '^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]' || continue
+              ref=$(printf '%s' "$line" | sed 's/.*uses:[[:space:]]*//' | awk '{print $1}')
+              # Local composite actions carry no ref to pin.
+              case "$ref" in ./*) continue ;; esac
+              # Container actions pin by image digest instead of a commit SHA.
+              case "$ref" in
+                docker://*)
+                  if ! printf '%s' "$ref" | grep -qE '@sha256:[a-f0-9]{64}$'; then
+                    echo "UNPINNED CONTAINER: $file -> $ref"
+                    failed=1
+                  fi
+                  continue
+                  ;;
+              esac
+              if ! printf '%s' "$line" | grep -qE '@[a-f0-9]{40}[[:space:]]+#[[:space:]]*v[0-9]'; then
+                echo "UNPINNED OR MISSING '# vX.Y.Z' COMMENT: $file -> $ref"
+                failed=1
+              fi
+            done < "$file"
+          done < <(find .github/workflows .github/actions -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
+
+          # A perfect `uses:` check still misses an unpinned fetch inside a
+          # run: block, which lands in the same job with the same token.
+          if grep -rnE '(go|pipx?) install [^|;&]*@(latest|main|master)' .github/workflows .github/actions 2>/dev/null; then
+            echo "::error::Unpinned tool install in a workflow. Pin the version in versions.env."
+            failed=1
+          fi
+
+          if [ "$failed" -eq 1 ]; then
+            echo ""
+            echo "Pin every 'uses:' to a full 40-character commit SHA followed by a version comment."
+            echo "  actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1"
+            echo "A tag is a moving target: whoever controls the repository can repoint it."
+            exit 1
+          fi
+          echo "All actions are pinned."
+
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A real gate, deliberately not continue-on-error. Requires the dependency
+      # graph, which is on by default for public repositories.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: always
+
+  # Exercises the template AS a template.
+  #
+  # Every gate above reads files. This one rehearses the adopter's path:
+  # bootstrap a scratch copy and assert the result is a clean repository. It is
+  # the only check that can catch an interaction between two individually
+  # correct things - a link to a file bootstrap deletes, an optional value that
+  # leaves an orphaned heading, a removed pack that leaves a dangling
+  # workflow_call.
+  #
+  # Safe to delete once the repository is no longer a template; it skips itself
+  # automatically as soon as the bootstrap script is gone.
+  bootstrap-rehearsal:
+    name: Bootstrap Rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: detect
+        run: |
+          if [ -f .github/scripts/bootstrap.py ]; then
+            echo "template=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "template=false" >> "$GITHUB_OUTPUT"
+            echo "Not a template any more. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Install yamllint and actionlint
+        if: steps.detect.outputs.template == 'true'
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          pip install --disable-pip-version-check "yamllint==${YAMLLINT_VERSION}"
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" -o /tmp/actionlint.tar.gz
+          echo "${ACTIONLINT_SHA256_LINUX_AMD64}  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin --no-same-owner actionlint
+
+      # Both adoption paths, including the one that removes the Go pack, since
+      # that is where dangling references appear.
+      - name: Rehearse both adoption paths
+        if: steps.detect.outputs.template == 'true'
+        run: |
+          set -euo pipefail
+
+          # $1 = "go" or "none" (the --lang value), $2 = "filled" or "blank".
+          #
+          # Both matter: blank exercises removing the optional blocks, filled
+          # exercises keeping them. Rehearsing only the blank path is how
+          # leftover marker comments shipped once already.
+          rehearse() {
+            lang="$1"
+            optional="$2"
+            if [ "$optional" = "filled" ]; then
+              docs="https://docs.example.test"
+              slack="https://slack.example.test"
+              home="https://example.test"
+            else
+              docs=""
+              slack=""
+              home=""
+            fi
+            work="$(mktemp -d)"
+            tar -c --exclude=.git . | tar -x -C "$work"
+
+            (
+              cd "$work"
+              # actionlint refuses to run outside a repository.
+              git init -q .
+              python3 .github/scripts/bootstrap.py \
+                --org-name acme --repo-name widget \
+                --repo-description "A widget service" \
+                --copyright-holder "Acme Inc" --copyright-year 2026 \
+                --maintainer-name "Ada Lovelace" --maintainer-github ada \
+                --security-email security@acme.test \
+                --conduct-email conduct@acme.test \
+                --homepage-url "$home" --docs-url "$docs" --slack-url "$slack" \
+                --lang "$lang"
+
+              echo "::group::lang=$lang optional=$optional assertions"
+
+              # repo-lint is what asserts the result: no placeholder or
+              # marker survived, no reference dangles, no workflow_call points
+              # at a file the pack removal deleted.
+              python3 .github/scripts/repo-lint.py
+              yamllint --strict .
+              actionlint
+
+              echo "::endgroup::"
+            )
+            rm -rf "$work"
+            echo "lang=$lang optional=$optional rehearsal passed"
+          }
+
+          rehearse go blank
+          rehearse go filled
+          rehearse none blank
+          rehearse none filled
+
+  # The single context that is safe to mark required in a branch ruleset.
+  #
+  # A path-filtered workflow never reports on a pull request that misses its
+  # filter, so requiring it directly leaves the pull request waiting for a
+  # status that will never arrive. This job has no path filter, always runs,
+  # and fails if any job it depends on failed. Add new jobs to `needs`.
+  required-checks:
+    name: required-checks
+    if: always()
+    needs: [typos, actionlint, yamllint, repo-lint, zizmor, pinned-actions, dependency-review, bootstrap-rehearsal]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail if any hygiene job failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -euo pipefail
+          echo "Results: ${RESULTS}"
+          # `skipped` is fine: dependency-review only runs on pull requests.
+          for result in ${RESULTS}; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::A required hygiene job reported '$result'"; exit 1 ;;
+            esac
+          done
+          echo "All hygiene jobs passed."

@@ -1,0 +1,29 @@
+# golangci-lint v2 configuration (https://golangci-lint.run)
+#
+# A starting point, not a finished policy: `standard` plus misspell, so a new
+# project is not fighting the linter on day one. Tighten it as the codebase
+# grows rather than shipping something an adopter turns off wholesale.
+---
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - misspell
+  settings:
+    misspell:
+      locale: US
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - std-error-handling
+
+formatters:
+  enable:
+    # gofumpt only; it is a strict superset of gofmt, so enabling both runs the
+    # same checks twice.
+    - gofumpt
+  exclusions:
+    generated: lax

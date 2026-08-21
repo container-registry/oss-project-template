@@ -1,17 +1,37 @@
+---
 name: PR Title
 
-on:
+# What: Requires the pull request title to be a conventional commit.
+# Fires on: pull request opened, edited or synchronized.
+# Needs: nothing.
+# Safe to delete if: never, while release-please is in use. The title becomes the squash commit it parses.
+#
+# DO NOT ADD actions/checkout TO THIS WORKFLOW.
+#
+# pull_request_target, not pull_request: with pull_request, a pull request that
+# edits this file runs its own edited copy, so the check it is supposed to pass
+# can be replaced with one that always succeeds. pull_request_target runs the
+# definition from the base branch instead. The action reads the title from the
+# event payload and never needs the code, so the usual danger of this trigger
+# does not apply here as long as nothing checks out the head.
+on:  # zizmor: ignore[dangerous-triggers]
   pull_request_target:
     types: [opened, edited, synchronize]
 
-permissions:
-  pull-requests: read
+permissions: {}
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
+      - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50  # v6.1.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
