@@ -33,11 +33,13 @@ Signed-off-by: Name <email>
 - `feat:` → minor bump (0.1.0 → 0.2.0)
 - `fix:` → patch bump (0.1.0 → 0.1.1)
 - `feat!:` or `fix!:` (breaking) → major bump, or minor while on 0.x
-- every other type → patch bump
+- `perf:`, `revert:`, `docs:`, `refactor:` → patch bump
+- `ci:`, `chore:`, `build:`, `style:`, `test:` → no release
 
-Any conventional commit that is not excluded by path produces a release. Marking a changelog section
-`hidden: true` removes it from the release notes; it does not stop the commit from bumping the version.
-Use `exclude-paths` for that. See [docs/RELEASES.md](docs/RELEASES.md).
+Those last two lines come from `changelog-sections` in `release-please-config.json`, not from the commit type
+itself. A section marked `hidden: true` contributes no changelog lines, and release-please skips the release
+when the whole entry comes out empty. So a push of only `chore:` commits releases nothing, while a push
+containing one `docs:` commit and one `chore:` commit cuts a patch. See [docs/RELEASES.md](docs/RELEASES.md).
 
 ## Why This Template?
 
@@ -196,8 +198,9 @@ delete it when you switch, or keep it in sync by listing it under `extra-files`.
 and the tag and nothing else: its `version-file` option defaults to empty, and the file updater is only
 registered when that option is set. Switching a Go project from `simple` to `go` therefore leaves `version.txt`
 frozen at its current value with nothing replacing it - which also stops `task release-assets` stamping the
-right version into the binary. Either stay on `simple`, or set `"version-file": "version.txt"` explicitly. Monorepos can add package paths under
-`packages`; each path gets independent version tracking and a changelog.
+right version into the binary. Either stay on `simple`, or set `"version-file": "version.txt"` explicitly.
+
+Monorepos can add package paths under `packages`; each path gets independent version tracking and a changelog.
 
 See [docs/RELEASES.md](docs/RELEASES.md) for the flow, version rules, required repository settings, and post-release job pattern.
 

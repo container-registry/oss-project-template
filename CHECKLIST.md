@@ -166,12 +166,12 @@ diff .github/settings.yml current.yml
   - `rust` - Rust (updates Cargo.toml)
   - `helm` - Helm charts (updates Chart.yaml)
 - [ ] Customize changelog sections if needed
+- [ ] Remove `bootstrap-sha`. It is a one-time migration boundary for this template's own history and points at
+      a commit that does not exist in your repository
 
 ### `.release-please-manifest.json`
 
 - [ ] Set initial version (default: `0.0.0`)
-- [ ] Remove `bootstrap-sha` from `release-please-config.json`. It is a one-time migration boundary for this
-      template's own history and points at a commit that does not exist in your repository
 - [ ] Set `version.txt` to the same version when using the default `simple` release type
 
 ### Conventional Commits (Required)
@@ -184,11 +184,11 @@ This template uses conventional commits for automatic versioning:
 | `fix:` | Patch | Bug Fixes | `fix: resolve login timeout` |
 | `feat!:` or `fix!:` | Major (minor below 1.0.0) | Breaking Changes | `feat!: redesign API endpoints` |
 | `docs:`, `perf:`, `refactor:`, `revert:` | Patch | Own section | `docs: update README` |
-| `ci:`, `chore:`, `build:`, `style:`, `test:` | Patch | Not shown | `chore: update dependencies` |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | None | Not shown | `chore: update dependencies` |
 
-`hidden: true` in `changelog-sections` controls the changelog only; it is not a way to stop a commit type from
-producing a release. See [docs/RELEASES.md](docs/RELEASES.md) for the dry-run command that shows the bump before
-you merge.
+A section marked `hidden: true` in `changelog-sections` contributes nothing to the changelog, and release-please
+skips a release whose changelog would be empty. That is what makes the last row "None" - and why a push mixing
+one `docs:` with several `chore:` commits still cuts a patch. See [docs/RELEASES.md](docs/RELEASES.md).
 
 ### `.typos.toml`
 
