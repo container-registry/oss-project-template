@@ -1,6 +1,0 @@
-mode: atomic
-github.com/container-registry/oss-project-template/main.go:15.13,19.18 3 0
-github.com/container-registry/oss-project-template/main.go:19.18,22.3 2 0
-github.com/container-registry/oss-project-template/main.go:24.2,24.63 1 0
-github.com/container-registry/oss-project-template/main.go:24.63,27.3 2 0
-github.com/container-registry/oss-project-template/main.go:30.24,32.2 1 1

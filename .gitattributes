@@ -1,0 +1,11 @@
+# Normalise line endings so a Windows checkout does not produce a diff.
+* text=auto eol=lf
+
+# Generated: excluded from language stats and collapsed in diffs.
+CHANGELOG.md linguist-generated=true
+*.lock       linguist-generated=true
+
+# Binary, so git does not try to merge them.
+*.png binary
+*.jpg binary
+*.gz  binary

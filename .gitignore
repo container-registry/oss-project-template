@@ -1,7 +1,25 @@
-bin
-temp
-.idea
+# Build output
+bin/
+dist/
+*.exe
+
+# Test and lint output
+coverage.out
+coverage.txt
+licenses.csv
+
+# Local tool and editor state
+.task/
+.idea/
+.vscode/
+temp/
+
+# Claude Code: shared configuration is committed, local state is not.
 .claude/settings.local.json
 .claude/plans/
 .claude/.cc-writes/
-.task/
+
+# Never commit these.
+.env
+*.pem
+*.key
