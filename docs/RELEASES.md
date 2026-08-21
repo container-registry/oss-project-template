@@ -31,18 +31,25 @@ npx release-please release-pr --dry-run \
 
 ## The Version Baseline
 
-release-please finds the previous release by looking for the tag that matches the version in
-`.release-please-manifest.json`. The template ships `0.0.0` in both the manifest and `version.txt`, so a new
-repository starts from zero and the first `feat:` produces `v0.1.0`.
+release-please finds the previous release by looking for the tag matching the version in
+`.release-please-manifest.json`. A new repository starts at `0.0.0` with no tags, so the first `feat:`
+produces `v0.1.0`.
 
-**If the repository already has releases, the manifest version and the newest `vX.Y.Z` tag must agree.** When they
-do not -- for example after switching from component tags such as `app-v1.1.0` to plain `vX.Y.Z` -- release-please
-finds no matching tag, walks the whole history, and repeats old commits in the next changelog. Fix it before the
-first release by either:
+**If the repository already has releases, the manifest version and the newest tag must agree.** When they do
+not, release-please finds no previous release, walks the whole history, and replays old commits into the next
+changelog. That is the case in this repository: its only release is tagged `app-v1.1.0`, which the `vX.Y.Z`
+scheme does not match.
 
-- tagging the existing release commit with the matching tag (`git tag v1.1.0 <sha> && git push origin v1.1.0`), or
-- setting `"bootstrap-sha"` in `release-please-config.json` to the commit the history should start from, then
-  removing that key once the first release under the new scheme has been cut.
+`release-please-config.json` therefore carries a one-time migration boundary:
+
+```json
+"bootstrap-sha": "9d06252c11397e07c9ea95c260dd2213869d605f"
+```
+
+**Delete that key once the first release under the new scheme has been cut.** It is a migration aid, not
+configuration, and it is meaningless in a repository created from this template. The alternative, if you would
+rather keep the old version line, is to push a tag matching the manifest at the existing release commit
+(`git tag v1.1.0 b9d64b1 && git push origin v1.1.0`) and set the manifest back to `1.1.0`.
 
 ## Adapt It to a Project
 

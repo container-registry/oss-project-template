@@ -169,6 +169,8 @@ diff .github/settings.yml current.yml
 ### `.release-please-manifest.json`
 
 - [ ] Set initial version (default: `0.0.0`)
+- [ ] Remove `bootstrap-sha` from `release-please-config.json`. It is a one-time migration boundary for this
+      template's own history and points at a commit that does not exist in your repository
 - [ ] Set `version.txt` to the same version when using the default `simple` release type
 
 ### Conventional Commits (Required)

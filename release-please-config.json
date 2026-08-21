@@ -4,6 +4,7 @@
   "pull-request-title-pattern": "chore: release ${version}",
   "release-type": "simple",
   "include-v-in-tag": true,
+  "bootstrap-sha": "9d06252c11397e07c9ea95c260dd2213869d605f",
   "bump-minor-pre-major": true,
   "exclude-paths": [
     "CONTRIBUTORS.md"

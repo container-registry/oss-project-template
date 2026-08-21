@@ -174,7 +174,7 @@ module.exports = async ({ github, context, core }) => {
       const rs = await github.rest.repos.getRepoRulesets({ owner, repo })
       rulesetsData = rs.data
     } catch (e) {
-      // No rulesets
+      markIfForbidden('rulesets', e)
     }
 
     let branchProtection = null
@@ -182,7 +182,7 @@ module.exports = async ({ github, context, core }) => {
       const bp = await github.rest.repos.getBranchProtection({ owner, repo, branch: r.default_branch })
       branchProtection = bp.data
     } catch (e) {
-      // No branch protection
+      markIfForbidden('branches', e)
     }
 
     let environmentsData = []
@@ -190,7 +190,7 @@ module.exports = async ({ github, context, core }) => {
       const envs = await github.rest.repos.getAllEnvironments({ owner, repo })
       environmentsData = envs.data.environments || []
     } catch (e) {
-      // No environments
+      markIfForbidden('environments', e)
     }
 
     const result = {

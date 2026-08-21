@@ -33,7 +33,11 @@ Signed-off-by: Name <email>
 - `feat:` → minor bump (0.1.0 → 0.2.0)
 - `fix:` → patch bump (0.1.0 → 0.1.1)
 - `feat!:` or `fix!:` (breaking) → major bump, or minor while on 0.x
-- Other types do not trigger a release by themselves
+- every other type → patch bump
+
+Any conventional commit that is not excluded by path produces a release. Marking a changelog section
+`hidden: true` removes it from the release notes; it does not stop the commit from bumping the version.
+Use `exclude-paths` for that. See [docs/RELEASES.md](docs/RELEASES.md).
 
 ## Why This Template?
 
