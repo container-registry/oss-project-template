@@ -17,7 +17,7 @@ Release state is defined by conventional commits on `main`, `release-please-conf
 | `fix:` | Patch | Bug Fixes |
 | `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | Major, or minor while the version is below `1.0.0` | Breaking Changes |
 | `perf:`, `revert:`, `docs:`, `refactor:` | Patch | Own section |
-| `ci:`, `chore:`, `build:`, `style:`, `test:` | None | Not shown |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | None on their own | Not shown |
 
 Both columns are set by `changelog-sections` in `release-please-config.json`, and the second drives the first.
 A section marked `hidden: true` contributes no lines to the changelog entry, and release-please skips the
