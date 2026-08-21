@@ -123,12 +123,22 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Read the pinned zizmor version
+        id: pin
+        run: echo "version=$(grep '^ZIZMOR_VERSION=' versions.env | cut -d= -f2)" >> "$GITHUB_OUTPUT"
+
       - name: Run zizmor
         uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054  # v0.6.2
         with:
           inputs: .
           online-audits: true
           persona: regular
+          # The action defaults to `latest`; pinned so a new rule release
+          # cannot red main without a commit.
+          version: ${{ steps.pin.outputs.version }}
+          # SARIF upload needs GitHub Advanced Security, which a private
+          # repository does not have by default. Findings still fail the job.
+          advanced-security: ${{ github.event.repository.visibility == 'public' }}
 
   pinned-actions:
     name: Check Action Pins
@@ -171,6 +181,13 @@ jobs:
             done < "$file"
           done < <(find .github/workflows .github/actions -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
 
+          # A perfect `uses:` check still misses an unpinned fetch inside a
+          # run: block, which lands in the same job with the same token.
+          if grep -rnE '(go|pipx?) install [^|;&]*@(latest|main|master)' .github/workflows .github/actions 2>/dev/null; then
+            echo "::error::Unpinned tool install in a workflow. Pin the version in versions.env."
+            failed=1
+          fi
+
           if [ "$failed" -eq 1 ]; then
             echo ""
             echo "Pin every 'uses:' to a full 40-character commit SHA followed by a version comment."
@@ -200,3 +217,32 @@ jobs:
           fail-on-severity: high
           deny-licenses: GPL-3.0, AGPL-3.0
           comment-summary-in-pr: always
+
+  # The single context that is safe to mark required in a branch ruleset.
+  #
+  # A path-filtered workflow never reports on a pull request that misses its
+  # filter, so requiring it directly leaves the pull request waiting for a
+  # status that will never arrive. This job has no path filter, always runs,
+  # and fails if any job it depends on failed. Add new jobs to `needs`.
+  required-checks:
+    name: required-checks
+    if: always()
+    needs: [typos, actionlint, yamllint, repo-lint, zizmor, pinned-actions, dependency-review]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Fail if any hygiene job failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          set -euo pipefail
+          echo "Results: ${RESULTS}"
+          # `skipped` is fine: dependency-review only runs on pull requests.
+          for result in ${RESULTS}; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::A required hygiene job reported '$result'"; exit 1 ;;
+            esac
+          done
+          echo "All hygiene jobs passed."

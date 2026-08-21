@@ -1,6 +1,12 @@
+---
 name: PR Size Labeler
 
-on:
+# DO NOT ADD actions/checkout TO THIS WORKFLOW.
+# pull_request_target runs in the base repository's context with a writable
+# token. Checking out the pull request head here executes a fork's code with
+# that token, which is remote code execution against this repository.
+# The trigger is required because a fork pull request must still be labelled by size.
+on:  # zizmor: ignore[dangerous-triggers]
   pull_request_target:
     types: [opened, synchronize, reopened]
 

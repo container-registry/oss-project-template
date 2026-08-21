@@ -32,7 +32,7 @@ module.exports = async ({ github, context, core }) => {
   // Apply labels (create or update)
   async function applyLabels() {
     if (!settings.labels) return
-    const { data: existing } = await github.rest.issues.listLabelsForRepo({ owner, repo, per_page: 100 })
+    const existing = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 })
     const existingNames = new Set(existing.map(l => l.name))
     for (const [name, config] of Object.entries(settings.labels)) {
       if (existingNames.has(name)) {
@@ -50,18 +50,27 @@ module.exports = async ({ github, context, core }) => {
   // has its own endpoint, so it is split out before the rest is passed on.
   async function applySecurity() {
     if (!settings.security) return
-    const { private_vulnerability_reporting: pvr, ...securityAndAnalysis } = settings.security
+    const {
+      private_vulnerability_reporting: pvr,
+      vulnerability_alerts: alerts,
+      ...securityAndAnalysis
+    } = settings.security
 
     if (Object.keys(securityAndAnalysis).length > 0) {
       await github.rest.repos.update({ owner, repo, security_and_analysis: securityAndAnalysis })
     }
 
-    if (pvr !== undefined) {
-      const enable = pvr === true || pvr === 'enabled'
-      await github.request(
-        `${enable ? 'PUT' : 'DELETE'} /repos/{owner}/{repo}/private-vulnerability-reporting`,
-        { owner, repo }
-      )
+    // Both of these are toggled through their own endpoints, and both would
+    // make the PATCH above fail with 422 if left in security_and_analysis.
+    // Alerts go first: they are the precondition for Dependabot security
+    // updates, which the PATCH may have just tried to enable.
+    for (const [value, path] of [
+      [alerts, '/repos/{owner}/{repo}/vulnerability-alerts'],
+      [pvr, '/repos/{owner}/{repo}/private-vulnerability-reporting']
+    ]) {
+      if (value === undefined) continue
+      const enable = value === true || value === 'enabled'
+      await github.request(`${enable ? 'PUT' : 'DELETE'} ${path}`, { owner, repo })
     }
     core.info('✓ security')
   }
@@ -166,7 +175,9 @@ module.exports = async ({ github, context, core }) => {
     }
 
     const { data: r } = await github.rest.repos.get({ owner, repo })
-    const { data: labels } = await github.rest.issues.listLabelsForRepo({ owner, repo, per_page: 100 })
+    // Paginate: a single page caps at 100 and the missing labels then read as
+    // permanent drift.
+    const labels = await github.paginate(github.rest.issues.listLabelsForRepo, { owner, repo, per_page: 100 })
 
     let actionsData
     try {
@@ -182,6 +193,19 @@ module.exports = async ({ github, context, core }) => {
       pvrEnabled = pvr.data.enabled ? 'enabled' : 'disabled'
     } catch (e) {
       markIfForbidden('security', e)
+    }
+
+    // This endpoint answers 204 when enabled and 404 when not, with no body.
+    let alertsEnabled
+    try {
+      await github.request('GET /repos/{owner}/{repo}/vulnerability-alerts', { owner, repo })
+      alertsEnabled = 'enabled'
+    } catch (e) {
+      if (e.status === 404) {
+        alertsEnabled = 'disabled'
+      } else {
+        markIfForbidden('security', e)
+      }
     }
 
     let codeScanningData = {}
@@ -251,6 +275,7 @@ module.exports = async ({ github, context, core }) => {
         secret_scanning: { status: r.security_and_analysis.secret_scanning?.status },
         secret_scanning_push_protection: { status: r.security_and_analysis.secret_scanning_push_protection?.status },
         dependabot_security_updates: { status: r.security_and_analysis.dependabot_security_updates?.status },
+        vulnerability_alerts: alertsEnabled,
         private_vulnerability_reporting: pvrEnabled
       } : undefined,
       code_scanning: codeScanningData.state ? {

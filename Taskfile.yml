@@ -143,10 +143,16 @@ tasks:
     desc: Check dependency licences against the policy
     status: ['! test -f go.mod']
     cmds:
-      # `notice` (MIT, Apache-2.0, BSD) and `unencumbered` (CC0, Unlicense) are
-      # the allowed classes. Everything else is rejected, including `unknown`:
-      # a licence we could not classify is not a licence we can ship.
-      - go-licenses check ./... --disallowed_types=forbidden,restricted,reciprocal,unknown --ignore="$(go list -m)"
+      # forbidden and restricted are the copyleft classes that would change the
+      # licence of what we ship. unknown is rejected because a licence we could
+      # not classify is not one we can vouch for.
+      #
+      # `reciprocal` is deliberately absent: it covers MPL-2.0, EPL and CDDL,
+      # which are file-level copyleft and safe to depend on. Including it fails
+      # on the first hashicorp dependency, and the adopter deletes the gate.
+      # `permissive` is absent too and should stay that way - upstream defines
+      # it as an empty set, so listing it only looks like policy.
+      - go-licenses check ./... --disallowed_types=forbidden,restricted,unknown --ignore="$(go list -m)"
 
   license-report:
     desc: Write a dependency licence report to the CI job summary

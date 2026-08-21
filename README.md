@@ -181,8 +181,11 @@ The default release-please config tracks one generic package and creates `vX.Y.Z
 
 Use `go`, `node`, `python`, `rust`, or `helm` when release-please should update the project's native version file
 instead - `package.json`, `pyproject.toml`, `Cargo.toml`, `Chart.yaml`. Those types do not maintain `version.txt`, so
-delete it when you switch, or keep it in sync by listing it under `extra-files`. Monorepos can add package paths under
-`packages`; each path gets independent version tracking and a changelog.
+delete it when you switch, or keep it in sync by listing it under `extra-files`.
+
+The template tracks one package at the repository root and the release workflows assume it. Multi-package
+release-please works, but adding a non-root path renames every release-please output, which silently skips the
+publish jobs on an otherwise green run. Wire it up deliberately rather than by copying an example.
 
 See [docs/RELEASES.md](docs/RELEASES.md) for the flow, version rules, required repository settings, and post-release job pattern.
 

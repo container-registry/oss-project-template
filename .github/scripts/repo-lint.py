@@ -87,10 +87,25 @@ def check_labeler_labels_declared(errors: list[str]) -> None:
     if not (labeler.exists() and settings.exists()):
         return
 
-    emitted = set(yaml.safe_load(labeler.read_text(encoding="utf-8")) or {})
     declared = set((yaml.safe_load(settings.read_text(encoding="utf-8")) or {}).get("labels") or {})
-    for name in sorted(emitted - declared):
-        errors.append(f".github/labeler.yml emits label {name!r} which .github/settings.yml does not declare")
+
+    sources = {".github/labeler.yml": set(yaml.safe_load(labeler.read_text(encoding="utf-8")) or {})}
+
+    # Issue forms apply labels on submission and drift from settings.yml the
+    # same way the labeler does.
+    for form in sorted((ROOT / ".github/ISSUE_TEMPLATE").glob("*.y*ml")):
+        if form.name == "config.yml":
+            continue
+        doc = yaml.safe_load(form.read_text(encoding="utf-8")) or {}
+        labels = doc.get("labels") or []
+        if isinstance(labels, str):
+            labels = [part.strip() for part in labels.split(",")]
+        if labels:
+            sources[_rel(form)] = set(labels)
+
+    for source, emitted in sources.items():
+        for name in sorted(emitted - declared):
+            errors.append(f"{source} applies label {name!r} which .github/settings.yml does not declare")
 
 
 def check_release_please_packages_exist(errors: list[str]) -> None:
@@ -167,6 +182,40 @@ def check_referenced_paths_exist(errors: list[str]) -> None:
                         flag(path, match.group(1))
 
 
+def check_pr_target_never_checks_out(errors: list[str]) -> None:
+    """A pull_request_target workflow must not check out the pull request.
+
+    pull_request_target runs in the base repository's context with a writable
+    token. Checking out the head there executes a fork's code with that token.
+    The workflows carry a comment saying so; this is what enforces it.
+    """
+    import yaml
+
+    workflows = ROOT / ".github/workflows"
+    if not workflows.is_dir():
+        return
+
+    for path in sorted(workflows.glob("*.y*ml")):
+        try:
+            doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except Exception:
+            continue  # check_yaml_loads already reported it
+
+        # PyYAML reads the unquoted key `on` as the boolean True.
+        triggers = doc.get("on", doc.get(True)) or {}
+        if not isinstance(triggers, dict) or "pull_request_target" not in triggers:
+            continue
+
+        for job in (doc.get("jobs") or {}).values():
+            for step in (job or {}).get("steps") or []:
+                uses = (step or {}).get("uses", "")
+                if isinstance(uses, str) and uses.startswith("actions/checkout"):
+                    errors.append(
+                        f"{_rel(path)}: pull_request_target workflow checks out code "
+                        f"({uses}); that runs fork code with a writable token"
+                    )
+
+
 def check_no_unreplaced_placeholders(errors: list[str]) -> None:
     """After `task bootstrap` no placeholder may survive outside the docs.
 
@@ -192,6 +241,7 @@ CHECKS = (
     check_release_please_packages_exist,
     check_version_file_matches_manifest,
     check_referenced_paths_exist,
+    check_pr_target_never_checks_out,
     check_no_unreplaced_placeholders,
 )
 

@@ -1,7 +1,11 @@
+---
 name: PR Title
 
+# pull_request, not pull_request_target: the action reads the title straight
+# out of the event payload, so it needs neither a write token nor the base
+# repository's context.
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, edited, synchronize]
 
 permissions: {}

@@ -1,3 +1,4 @@
+---
 name: Apply Repository Settings
 
 on:
@@ -19,14 +20,28 @@ on:
         options: [verify, apply, check]
         default: verify
 
-# GITHUB_TOKEN can manage labels but not repository settings (description, etc.)
-# For full access: create PAT with 'repo' scope, add as SETTINGS_TOKEN secret
+# GITHUB_TOKEN can manage labels but nothing else here: repository settings,
+# security toggles and rulesets all need administration access.
+#
+# For the rest, add a SETTINGS_TOKEN secret holding a fine-grained personal
+# access token scoped to this repository alone, with
+#   Administration: read and write
+#   Metadata: read
+# A classic `repo`-scope token also works but grants far more than is needed.
+#
+# Without the secret the job reports what it skipped and succeeds; a brand new
+# repository should not greet its owner with a red run it cannot fix.
 
 permissions: {}
 
 concurrency:
   group: apply-settings-${{ github.ref }}
   cancel-in-progress: false
+
+env:
+  # The secrets context cannot be used in a job-level `if`, so availability is
+  # resolved once here and tested per step.
+  HAS_SETTINGS_TOKEN: ${{ secrets.SETTINGS_TOKEN != '' }}
 
 jobs:
   settings:
@@ -43,10 +58,14 @@ jobs:
         with:
           persist-credentials: false
 
+      # Exact version, and --ignore-scripts so no install hook executes in the
+      # one job that can hold an administration token.
       - name: Install js-yaml
-        run: npm install js-yaml
+        if: env.HAS_SETTINGS_TOKEN == 'true'
+        run: npm install --no-save --no-audit --no-fund --ignore-scripts js-yaml@4.1.0
 
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        if: env.HAS_SETTINGS_TOKEN == 'true'
         env:
           # schedule has no inputs, so a cron run is a drift check; everything else applies and verifies.
           INPUT_MODE: ${{ inputs.mode || (github.event_name == 'schedule' && 'check' || 'verify') }}
@@ -55,3 +74,17 @@ jobs:
           script: |
             const script = require('./.github/scripts/apply-settings.js')
             await script({ github, context, core })
+
+      - name: Explain what was skipped
+        if: env.HAS_SETTINGS_TOKEN != 'true'
+        run: |
+          {
+            echo "## Repository settings not applied"
+            echo
+            echo "\`SETTINGS_TOKEN\` is not configured, so \`.github/settings.yml\` was not applied."
+            echo "GITHUB_TOKEN cannot change repository settings, security toggles or rulesets."
+            echo
+            echo "Add a fine-grained personal access token scoped to this repository with"
+            echo "**Administration: read and write** and **Metadata: read**, store it as the"
+            echo "\`SETTINGS_TOKEN\` secret, then re-run this workflow."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -13,10 +13,16 @@
 # Reference: https://docs.github.com/en/rest/repos
 
 repository:
-  description: GitHub repository configuration and automation templates for open source projects.
+  # Everything here is PATCHed onto the repository on the first push to main.
+  # Two keys are deliberately absent and must stay absent:
+  #   visibility  - a private repository created from this template would
+  #                 publish itself, which cannot be undone.
+  #   is_template - every repository created from the template would itself
+  #                 become a template.
+  # Leave description and topics empty rather than inheriting the template's.
+  description: ""
   homepage: ""
   topics: []
-  visibility: public
   has_issues: true
   has_projects: true
   has_wiki: false
@@ -24,7 +30,6 @@ repository:
   # SUPPORT.md, ROADMAP.md, the issue-template chooser and the welcome bot all link to
   # /discussions. Turning this off silently breaks four links.
   has_discussions: true
-  is_template: true
   default_branch: main
   allow_forking: true
   allow_squash_merge: true
@@ -34,7 +39,11 @@ repository:
   allow_auto_merge: false
   allow_update_branch: true
   squash_merge_commit_title: PR_TITLE
-  squash_merge_commit_message: PR_BODY
+  # COMMIT_MESSAGES, not PR_BODY. Under squash-only merging the pull request
+  # body becomes the commit body, and a pull request body carries no
+  # Signed-off-by trailer - so main ends up with zero DCO sign-offs while the
+  # README claims every commit has one. This carries the branch trailers over.
+  squash_merge_commit_message: COMMIT_MESSAGES
   merge_commit_title: MERGE_MESSAGE
   merge_commit_message: PR_TITLE
   web_commit_signoff_required: false
@@ -147,6 +156,9 @@ security:
     status: enabled
   secret_scanning_push_protection:
     status: enabled
+  # Alerts are the precondition for security updates; declaring the updates
+  # without the alerts silently does nothing.
+  vulnerability_alerts: enabled
   dependabot_security_updates:
     status: enabled
   # Makes the "report a vulnerability" button real. SECURITY.md and the issue
@@ -189,18 +201,26 @@ rulesets:
           require_last_push_approval: false
           required_review_thread_resolution: false
           allowed_merge_methods: [squash]
-      - type: required_status_checks
-        parameters:
-          strict_required_status_checks_policy: true
-          do_not_enforce_on_create: false
-          required_status_checks:
-            # Names must match the job `name:` as GitHub reports it. Add the
-            # ci.yml checks here once the project has a real build.
-            - context: Spell Check
-            - context: Lint Workflows
-            - context: Lint YAML
-            - context: Repository Consistency
-            - context: Check Action Pins
+      # No required_status_checks, deliberately. GitHub raises no workflow
+      # events for a ref pushed with GITHUB_TOKEN, so the `chore: release`
+      # pull request that release-please opens gets zero runs - and any
+      # required context then blocks it forever. Verified on this repository:
+      # the release pull request had no workflow runs at all.
+      #
+      # Two prerequisites before uncommenting the block below:
+      #   1. release-please must open its pull request with a GitHub App token
+      #      (actions/create-github-app-token) rather than GITHUB_TOKEN.
+      #   2. Only require the aggregate `required-checks` context. A
+      #      path-filtered workflow never reports on a pull request that misses
+      #      its filter, and the check sits at "Expected" forever.
+      #
+      # - type: required_status_checks
+      #   parameters:
+      #     strict_required_status_checks_policy: true
+      #     do_not_enforce_on_create: false
+      #     required_status_checks:
+      #       - context: required-checks
+      #       - context: DCO
 
 # branches:
 #   main:

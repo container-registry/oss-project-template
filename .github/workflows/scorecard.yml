@@ -15,7 +15,9 @@ jobs:
     name: Scorecard Analysis
     # Scorecard scores the canonical repository; a fork would publish results
     # for a repository nobody is looking at.
-    if: ${{ !github.event.repository.fork }}
+    # Scorecard needs a public repository: it reads public metadata and the
+    # SARIF upload needs Advanced Security. Skip rather than fail elsewhere.
+    if: ${{ !github.event.repository.fork && github.event.repository.visibility == 'public' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -35,7 +37,13 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          publish_results: true
+          # Publishes the score to the public OpenSSF API and enables the
+          # badge. Turn it on once the score is one you want cited.
+          publish_results: false
+          # Branch-Protection and a few other checks cannot be scored with
+          # GITHUB_TOKEN. Add a classic PAT with repo scope as SCORECARD_TOKEN
+          # to include them.
+          repo_token: ${{ secrets.SCORECARD_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Upload results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4
