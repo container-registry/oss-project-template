@@ -7,6 +7,12 @@ module.exports = async ({ github, context, core }) => {
   const mode = process.env.INPUT_MODE || (context.eventName === 'schedule' ? 'check' : 'verify')
   core.info(`Mode: ${mode}`)
 
+  // Sections whose current state the token was not allowed to read. They are
+  // dropped from BOTH sides of the drift comparison: "cannot read" is not
+  // "differs", and settings.yml always carries these keys, so comparing them
+  // against an absent export would report drift forever.
+  let unreadable = new Set()
+
   // Apply repository settings
   async function applyRepository() {
     if (!settings.repository) return
@@ -95,20 +101,55 @@ module.exports = async ({ github, context, core }) => {
     core.info('✓ environments')
   }
 
-  // Apply all settings with error handling
+  // Apply all settings.
+  //
+  // Every section is attempted even if an earlier one fails, so one permission
+  // gap does not hide the state of the rest -- but the failures are collected
+  // and the job fails. A section that silently did not apply is drift that the
+  // next `check` run would report against a repo nobody knowingly changed.
   async function applyAll() {
-    await applyRepository().catch(e => core.warning(`repository: ${e.message} (needs SETTINGS_TOKEN?)`))
-    await applyActions().catch(e => core.warning(`actions: ${e.message} (needs SETTINGS_TOKEN?)`))
-    await applyLabels().catch(e => core.warning(`labels: ${e.message}`))
-    await applySecurity().catch(e => core.warning(`security: ${e.message} (needs SETTINGS_TOKEN?)`))
-    await applyCodeScanning().catch(e => core.warning(`code_scanning: ${e.message}`))
-    await applyRulesets().catch(e => core.warning(`rulesets: ${e.message} (needs SETTINGS_TOKEN?)`))
-    await applyBranches().catch(e => core.warning(`branches: ${e.message} (needs SETTINGS_TOKEN?)`))
-    await applyEnvironments().catch(e => core.warning(`environments: ${e.message} (needs SETTINGS_TOKEN?)`))
+    const sections = [
+      ['repository', applyRepository, true],
+      ['actions', applyActions, true],
+      ['labels', applyLabels, false],
+      ['security', applySecurity, true],
+      ['code_scanning', applyCodeScanning, false],
+      ['rulesets', applyRulesets, true],
+      ['branches', applyBranches, true],
+      ['environments', applyEnvironments, true]
+    ]
+
+    const failures = []
+    for (const [name, apply, needsAdmin] of sections) {
+      try {
+        await apply()
+      } catch (e) {
+        const hint = needsAdmin && (e.status === 403 || e.status === 404) ? ' (needs SETTINGS_TOKEN?)' : ''
+        failures.push(`${name}: ${e.message}${hint}`)
+        core.error(`\u2717 ${name}: ${e.message}${hint}`)
+      }
+    }
+
+    if (failures.length > 0) {
+      core.setFailed(`Failed to apply ${failures.length} of ${sections.length} section(s):\n  ${failures.join('\n  ')}`)
+    }
+    return failures.length === 0
   }
 
   // Export current settings from GitHub
   async function exportSettings() {
+    unreadable = new Set()
+
+    // 403/401 means the token may not read this section; anything else (404,
+    // 422) means the feature is genuinely not configured, which is a real
+    // value to compare against.
+    const markIfForbidden = (section, e) => {
+      if (e.status === 403 || e.status === 401) {
+        unreadable.add(section)
+        core.warning(`Cannot read ${section}: ${e.message}. Excluded from drift comparison.`)
+      }
+    }
+
     const { data: r } = await github.rest.repos.get({ owner, repo })
     const { data: labels } = await github.rest.issues.listLabelsForRepo({ owner, repo, per_page: 100 })
 
@@ -117,7 +158,7 @@ module.exports = async ({ github, context, core }) => {
       const actions = await github.request('GET /repos/{owner}/{repo}/actions/permissions/workflow', { owner, repo })
       actionsData = actions.data
     } catch (e) {
-      // Actions workflow permissions are unavailable without repository admin access
+      markIfForbidden('actions', e)
     }
 
     let codeScanningData = {}
@@ -125,7 +166,7 @@ module.exports = async ({ github, context, core }) => {
       const cs = await github.request('GET /repos/{owner}/{repo}/code-scanning/default-setup', { owner, repo })
       codeScanningData = cs.data
     } catch (e) {
-      // Code scanning not configured
+      markIfForbidden('code_scanning', e)
     }
 
     let rulesetsData = []
@@ -277,8 +318,19 @@ module.exports = async ({ github, context, core }) => {
   async function detectDrift() {
     core.info('Exporting current GitHub settings...')
     const current = await exportSettings()
-    const expected = sortKeys(normalize(settings))
-    const actual = sortKeys(normalize(current))
+
+    const omit = (obj, keys) =>
+      Object.fromEntries(Object.entries(obj || {}).filter(([k]) => !keys.has(k)))
+
+    if (unreadable.size > 0) {
+      core.warning(
+        `Skipping drift check for section(s) this token cannot read: ${[...unreadable].sort().join(', ')}. ` +
+        'Supply SETTINGS_TOKEN with admin access to verify them.'
+      )
+    }
+
+    const expected = sortKeys(normalize(omit(settings, unreadable)))
+    const actual = sortKeys(normalize(omit(current, unreadable)))
 
     const expectedJson = JSON.stringify(expected, null, 2)
     const actualJson = JSON.stringify(actual, null, 2)

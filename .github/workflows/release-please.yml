@@ -16,6 +16,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      # release-please labels its own PR (autorelease: pending/tagged) via the
+      # Issues API, which is a separate scope from pull-requests.
+      issues: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}

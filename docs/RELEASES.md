@@ -11,15 +11,38 @@ Release state is defined by conventional commits on `main`, `release-please-conf
 3. The release pull request updates the manifest, `CHANGELOG.md`, and the generic `version.txt` version file.
 4. Merging that pull request creates the `vX.Y.Z` tag and GitHub Release.
 
-Only `feat:`, `fix:`, and breaking changes trigger a release. Other visible types are included when the next release is created.
-
-| Commit type | Version change | Release notes |
-|-------------|----------------|---------------|
+| Commit type | Version bump | Release notes |
+|-------------|--------------|---------------|
 | `feat:` | Minor | Features |
 | `fix:` | Patch | Bug Fixes |
-| `feat!:` or `BREAKING CHANGE:` | Major (minor while on 0.x) | Breaking changes |
-| `perf:`, `revert:`, `docs:`, `refactor:` | None | Included in the next release |
-| `ci:`, `chore:`, `build:`, `style:`, `test:` | None | Hidden |
+| `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | Major, or minor while the version is below `1.0.0` | Breaking Changes |
+| `perf:`, `revert:`, `docs:`, `refactor:` | Patch | Own section |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | Patch | Not shown |
+
+The `Release notes` column is set by `changelog-sections` in `release-please-config.json`. Marking a section
+`hidden: true` removes it from the changelog; treat it as a presentation setting, not as a way to stop a commit
+from producing a release. Confirm the bump you expect with a dry run before relying on it:
+
+```bash
+npx release-please release-pr --dry-run \
+  --repo-url=<owner>/<repo> --config-file=release-please-config.json \
+  --manifest-file=.release-please-manifest.json
+```
+
+## The Version Baseline
+
+release-please finds the previous release by looking for the tag that matches the version in
+`.release-please-manifest.json`. The template ships `0.0.0` in both the manifest and `version.txt`, so a new
+repository starts from zero and the first `feat:` produces `v0.1.0`.
+
+**If the repository already has releases, the manifest version and the newest `vX.Y.Z` tag must agree.** When they
+do not -- for example after switching from component tags such as `app-v1.1.0` to plain `vX.Y.Z` -- release-please
+finds no matching tag, walks the whole history, and repeats old commits in the next changelog. Fix it before the
+first release by either:
+
+- tagging the existing release commit with the matching tag (`git tag v1.1.0 <sha> && git push origin v1.1.0`), or
+- setting `"bootstrap-sha"` in `release-please-config.json` to the commit the history should start from, then
+  removing that key once the first release under the new scheme has been cut.
 
 ## Adapt It to a Project
 

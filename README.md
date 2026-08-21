@@ -53,7 +53,7 @@ This template is programming language agnostic. A minimal Go application is incl
 
 1. Copy the `.github/` directory to your repository
 2. Copy the community and release files (`CODE_OF_CONDUCT.md`, `SUPPORT.md`, `CHANGELOG.md`, `ROADMAP.md`, `release-please-config.json`, `.release-please-manifest.json`, `version.txt`, `docs/RELEASES.md`)
-3. Copy `.typos.toml` for spell checking
+3. Copy `Taskfile.yml`, `lefthook.yml`, and `.typos.toml` - the release workflow calls `task release-assets`, and these define the checks that mirror CI
 4. Replace placeholders with your project values
 5. Follow the **[CHECKLIST.md](CHECKLIST.md)** for a complete adoption guide
 
@@ -184,7 +184,10 @@ The default release-please config tracks one generic package and creates `vX.Y.Z
 }
 ```
 
-Use `go`, `node`, `python`, `rust`, or `helm` when release-please should update the project's native version file. Monorepos can add package paths under `packages`; each path gets independent version tracking and a changelog.
+Use `go`, `node`, `python`, `rust`, or `helm` when release-please should update the project's native version file
+instead - `package.json`, `pyproject.toml`, `Cargo.toml`, `Chart.yaml`. Those types do not maintain `version.txt`, so
+delete it when you switch, or keep it in sync by listing it under `extra-files`. Monorepos can add package paths under
+`packages`; each path gets independent version tracking and a changelog.
 
 See [docs/RELEASES.md](docs/RELEASES.md) for the flow, version rules, required repository settings, and post-release job pattern.
 
