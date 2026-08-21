@@ -1,6 +1,10 @@
 ---
 name: Apply Repository Settings
 
+# What: Applies .github/settings.yml to the repository and reports drift.
+# Fires on: push to main touching settings, a weekly drift check, or manual dispatch.
+# Needs: SETTINGS_TOKEN, a fine-grained PAT with Administration read/write. Without it the job reports what it skipped and succeeds.
+# Safe to delete if: repository settings are managed by hand. Delete .github/settings.yml and the script with it.
 on:
   push:
     branches: [main]

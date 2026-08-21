@@ -1,6 +1,11 @@
 ---
 name: CI
 
+# What: Builds, tests, lints and vulnerability-scans the Go pack.
+# Fires on: pull request and push to main (skipping docs-only changes); weekly for vuln-check.
+# Needs: nothing. Uses GITHUB_TOKEN only.
+# Safe to delete if: the project is not Go. It also no-ops on its own without go.mod.
+#
 # Build and test gates for the Go pack. Delete this workflow along with
 # go.mod, main.go and the Go tasks if the project is not Go; the language
 # neutral gates live in hygiene.yml and keep working either way.
@@ -36,8 +41,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: ./.github/actions/setup
-      - run: task build
+        if: steps.detect.outputs.go == 'true'
+      - if: steps.detect.outputs.go == 'true'
+        run: task build
 
   test:
     name: Test
@@ -50,8 +70,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: ./.github/actions/setup
-      - run: task test
+        if: steps.detect.outputs.go == 'true'
+      - if: steps.detect.outputs.go == 'true'
+        run: task test
 
   lint:
     name: Lint Go
@@ -64,8 +99,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: ./.github/actions/setup
-      - run: task lint
+        if: steps.detect.outputs.go == 'true'
+      - if: steps.detect.outputs.go == 'true'
+        run: task lint
 
   license-check:
     name: License Check
@@ -78,8 +128,23 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: ./.github/actions/setup
-      - run: task license-check
+        if: steps.detect.outputs.go == 'true'
+      - if: steps.detect.outputs.go == 'true'
+        run: task license-check
       - name: License report
         if: always()
         run: task license-report
@@ -94,5 +159,102 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
+
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: ./.github/actions/setup
-      - run: task vuln-check
+        if: steps.detect.outputs.go == 'true'
+      - if: steps.detect.outputs.go == 'true'
+        run: task vuln-check
+
+  tidy:
+    name: Tidy
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: ./.github/actions/setup
+        if: steps.detect.outputs.go == 'true'
+      - if: steps.detect.outputs.go == 'true'
+        run: task tidy-check
+
+  image:
+    name: Image
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: detect
+        run: |
+          if [ -f Dockerfile ]; then
+            echo "docker=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "docker=false" >> "$GITHUB_OUTPUT"
+            echo "No Dockerfile. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4.3.0
+        if: steps.detect.outputs.docker == 'true'
+
+      # Build both platforms so a cross-compilation break is caught here, and
+      # load the native one so it can actually be run.
+      - name: Build both platforms
+        if: steps.detect.outputs.docker == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: false
+
+      - name: Load the native image
+        if: steps.detect.outputs.docker == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
+        with:
+          context: .
+          load: true
+          tags: ci-smoke:latest
+
+      # Deliberately does not depend on what the demo program prints, only
+      # that the image runs and does not run as root.
+      - name: The image must run, and must not run as root
+        if: steps.detect.outputs.docker == 'true'
+        run: |
+          set -euo pipefail
+          docker run --rm ci-smoke:latest >/dev/null
+          user=$(docker inspect --format '{{.Config.User}}' ci-smoke:latest)
+          echo "image user: '${user}'"
+          case "$user" in
+            ''|root|0|0:0) echo "::error::Image runs as root"; exit 1 ;;
+          esac

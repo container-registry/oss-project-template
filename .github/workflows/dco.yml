@@ -1,6 +1,11 @@
 ---
 name: DCO
 
+# What: Fails a pull request whose commits are not signed off.
+# Fires on: every pull request.
+# Needs: nothing.
+# Safe to delete if: the project does not require the Developer Certificate of Origin.
+#
 # In-repo Developer Certificate of Origin gate.
 #
 # The dco2 GitHub App gives nicer remediation UX, but it is an app somebody has

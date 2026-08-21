@@ -1,6 +1,11 @@
 ---
 name: Welcome
 
+# What: Greets a first-time issue or pull request author.
+# Fires on: first issue or first pull request from an author.
+# Needs: nothing.
+# Safe to delete if: the project does not want an automated greeting.
+#
 # DO NOT ADD actions/checkout TO THIS WORKFLOW.
 # pull_request_target runs in the base repository's context with a writable
 # token. Checking out the pull request head here executes a fork's code with
@@ -32,7 +37,7 @@ jobs:
             - Check our [documentation]({{DOCS_URL}}) for common solutions
             - Search [existing issues](https://github.com/${{ github.repository }}/issues) for similar reports
 
-            If this is a question rather than a bug report, consider posting in [GitHub Discussions](https://github.com/${{ github.repository }}/discussions) instead.
+            If this is a question rather than a bug report, the [question form](https://github.com/${{ github.repository }}/issues/new?template=question.yml) collects what a maintainer needs to answer it.
 
           pr-message: |
             Thanks for your first pull request! 🎉

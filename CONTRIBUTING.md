@@ -9,7 +9,7 @@ By contributing you agree that your contribution is licensed under the terms in 
 - Search [existing issues](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues) before opening a new one.
 - For anything larger than a bug fix, open a [proposal](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=proposal.yml)
   first. Agreeing on the approach before the code exists saves everyone a rewrite.
-- Questions belong in [Discussions](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/discussions), not in issues.
+- Questions are welcome as issues, using the [question form](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=question.yml).
 - Never open a public issue for a security problem. Follow [SECURITY.md](SECURITY.md) instead.
 
 ## Local Setup

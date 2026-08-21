@@ -6,16 +6,13 @@ Welcome! This document outlines how to get help.
 
 - **Official Docs**: {{DOCS_URL}}
 
-## Community Support
+## Questions
 
-### GitHub Discussions
-
-For questions, ideas, and community conversations:
-https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/discussions
+Ask in an issue. There is one inbox on purpose, so nothing sits unanswered in a second one:
+https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=question.yml
 
 ### Chat
 
-Join our community chat for real-time support:
 {{SLACK_URL}}
 
 ## Reporting Issues

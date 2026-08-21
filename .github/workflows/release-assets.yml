@@ -1,6 +1,11 @@
 ---
 name: Release Assets
 
+# What: Builds, attests and uploads the release binaries and their SBOM.
+# Fires on: called by release-please.yml after a release is created.
+# Needs: nothing.
+# Safe to delete if: the project publishes no binaries. It also no-ops on its own without go.mod; remove the caller in release-please.yml if deleted.
+#
 # Called by release-please.yml once a release exists. It is not triggered by
 # `release: published`, because a release created with GITHUB_TOKEN does not
 # fire workflow events - that is why the previous version never ran.
@@ -37,16 +42,32 @@ jobs:
           ref: ${{ inputs.tag_name }}
           persist-credentials: false
 
+
+      # In-job detection, not a job-level `if: hashFiles(...)`: hashFiles
+      # resolves against GITHUB_WORKSPACE, which does not exist when a
+      # job-level condition is evaluated, so that guard always fails open.
+      - id: detect
+        run: |
+          if [ -f go.mod ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "No go.mod; the Go pack has been removed. Skipping." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: ./.github/actions/setup
+        if: steps.detect.outputs.go == 'true'
 
       # Build commands live in Taskfile.yml so they can be run locally.
       - name: Build release assets
+        if: steps.detect.outputs.go == 'true'
         run: task release-assets
 
       # An SBOM for the release artifacts, not only for the container image.
       # Binaries are what most consumers actually download, and a bill of
       # materials that only covers the image does not describe them.
       - name: Generate SBOM
+        if: steps.detect.outputs.go == 'true'
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0.24.0
         with:
           path: .
@@ -56,11 +77,13 @@ jobs:
           upload-release-assets: false
 
       - name: Attest build provenance
+        if: steps.detect.outputs.go == 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: dist/app-*
 
       - name: Upload release assets
+        if: steps.detect.outputs.go == 'true'
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2
         with:
           tag_name: ${{ inputs.tag_name }}

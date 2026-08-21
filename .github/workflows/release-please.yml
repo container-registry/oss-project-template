@@ -1,6 +1,10 @@
 ---
 name: Release Please
 
+# What: Opens and merges release pull requests, then triggers the publish workflows.
+# Fires on: push to main, or manual dispatch.
+# Needs: nothing. Repository settings must allow Actions to create pull requests.
+# Safe to delete if: releases are cut by hand. Removes versioning automation entirely.
 on:
   workflow_dispatch:
   push:

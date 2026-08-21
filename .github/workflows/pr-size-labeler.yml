@@ -1,6 +1,11 @@
 ---
 name: PR Size Labeler
 
+# What: Labels pull requests by diff size.
+# Fires on: pull request opened, synchronized or reopened.
+# Needs: nothing.
+# Safe to delete if: size labels are not wanted. Remove the size/* labels from settings.yml too.
+#
 # DO NOT ADD actions/checkout TO THIS WORKFLOW.
 # pull_request_target runs in the base repository's context with a writable
 # token. Checking out the pull request head here executes a fork's code with

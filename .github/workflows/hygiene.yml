@@ -1,8 +1,11 @@
 ---
 name: Hygiene
 
-# Repository hygiene gates that apply to every project regardless of language:
-# spelling, workflow correctness, workflow security, and dependency review.
+# What: Language-neutral repository gates: spelling, workflow lint, workflow security, dependency review.
+# Fires on: every pull request and push to main.
+# Needs: nothing. zizmor's SARIF upload needs a public repo or Advanced Security, and skips otherwise.
+# Safe to delete if: never. This is the gate the rest of the template relies on.
+#
 # Language-specific build and test gates live in ci.yml.
 
 on:

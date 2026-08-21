@@ -1,6 +1,11 @@
 ---
 name: Publish Image
 
+# What: Builds, pushes, signs and attests the container image.
+# Fires on: called by release-please.yml after a release is created.
+# Needs: nothing for GHCR. Another registry needs a login step and its credentials.
+# Safe to delete if: the project publishes no container image. Remove the caller in release-please.yml too.
+#
 # Builds, pushes, signs and attests the container image.
 #
 # Defaults to GHCR authenticated with GITHUB_TOKEN, so it works in a fresh

@@ -6,7 +6,10 @@
 ARG BASE_IMAGE=gcr.io/distroless/static-debian12:nonroot
 ARG BASE_IMAGE_DIGEST=sha256:1b7b9f0f0e0a1d2155f531db587cc48ec26aaf97ab64364225f5bf18a054e66a
 
-FROM golang:1.25.6-alpine AS builder
+# --platform=$BUILDPLATFORM keeps the compiler on the native runner and lets Go
+# cross-compile. Without it a linux/arm64 build runs the whole Go toolchain
+# under QEMU, which is minutes slower for no benefit.
+FROM --platform=$BUILDPLATFORM golang:1.25.6-alpine AS builder
 
 WORKDIR /src
 

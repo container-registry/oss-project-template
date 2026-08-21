@@ -26,6 +26,7 @@ tasks:
       - task: dco-check
       - task: lint
       - task: test
+      - task: tidy-check
       - task: license-check
 
   # --- Language-neutral gates ---------------------------------------------
@@ -113,6 +114,10 @@ tasks:
   test:
     desc: Run tests with the race detector
     status: ['! test -f go.mod']
+    env:
+      # -race needs cgo. Some runner images export CGO_ENABLED=0, and the race
+      # detector then quietly does not run.
+      CGO_ENABLED: '1'
     cmds:
       - go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
@@ -132,6 +137,22 @@ tasks:
           echo "golangci-lint is missing. Install the pinned version with: task install-tools"
           exit 1
         }
+
+  tidy-check:
+    desc: Fail if go.mod or go.sum is not tidy
+    status: ['! test -f go.mod']
+    cmds:
+      - go mod tidy
+      - git diff --exit-code -- go.mod go.sum
+
+  image:
+    desc: Build the container image locally
+    status: ['! test -f Dockerfile']
+    cmds:
+      - >-
+        docker build
+        --build-arg VERSION="$(cat version.txt)"
+        -t "{{.RELEASE_BINARY}}:$(cat version.txt)" .
 
   vuln-check:
     desc: Check dependencies for known vulnerabilities

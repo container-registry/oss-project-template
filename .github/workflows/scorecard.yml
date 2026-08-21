@@ -1,5 +1,9 @@
 name: OpenSSF Scorecard
 
+# What: Scores the repository against OpenSSF Scorecard.
+# Fires on: weekly cron, push to main, and branch protection changes.
+# Needs: nothing to run. SCORECARD_TOKEN (classic PAT) to also score Branch-Protection.
+# Safe to delete if: the repository is private, where it skips itself anyway.
 on:
   branch_protection_rule:
   schedule:

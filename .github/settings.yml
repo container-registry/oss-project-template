@@ -27,9 +27,12 @@ repository:
   has_projects: true
   has_wiki: false
   has_downloads: true
-  # SUPPORT.md, ROADMAP.md, the issue-template chooser and the welcome bot all link to
-  # /discussions. Turning this off silently breaks four links.
-  has_discussions: true
+  # One support surface, deliberately. Discussions is a second inbox, and an
+  # unanswered discussion reads worse than not offering one. Questions go
+  # through .github/ISSUE_TEMPLATE/question.yml instead. To switch: set this
+  # true, restore the Discussions contact link in ISSUE_TEMPLATE/config.yml,
+  # and delete question.yml.
+  has_discussions: false
   default_branch: main
   allow_forking: true
   allow_squash_merge: true
