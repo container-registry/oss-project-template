@@ -159,7 +159,8 @@ diff .github/settings.yml current.yml
 
 - [ ] Update `release-type` for your language:
   - `simple` (default) - Generic (creates `version.txt`)
-  - `go` - Go modules
+  - `go` - Go modules. Maintains the changelog and tag only; Go is versioned by tags. Set
+    `"version-file": "version.txt"` as well, or `version.txt` goes stale with nothing replacing it
   - `node` - Node.js (updates package.json)
   - `python` - Python (updates pyproject.toml)
   - `rust` - Rust (updates Cargo.toml)

@@ -188,9 +188,15 @@ The default release-please config tracks one generic package and creates `vX.Y.Z
 }
 ```
 
-Use `go`, `node`, `python`, `rust`, or `helm` when release-please should update the project's native version file
-instead - `package.json`, `pyproject.toml`, `Cargo.toml`, `Chart.yaml`. Those types do not maintain `version.txt`, so
-delete it when you switch, or keep it in sync by listing it under `extra-files`. Monorepos can add package paths under
+Use `node`, `python`, `rust`, or `helm` when release-please should maintain the project's native manifest instead
+- `package.json`, `pyproject.toml`, `Cargo.toml`, `Chart.yaml`. Those types do not maintain `version.txt`, so
+delete it when you switch, or keep it in sync by listing it under `extra-files`.
+
+`go` is not like the others. Go modules are versioned by tags, so the `go` release type maintains the changelog
+and the tag and nothing else: its `version-file` option defaults to empty, and the file updater is only
+registered when that option is set. Switching a Go project from `simple` to `go` therefore leaves `version.txt`
+frozen at its current value with nothing replacing it - which also stops `task release-assets` stamping the
+right version into the binary. Either stay on `simple`, or set `"version-file": "version.txt"` explicitly. Monorepos can add package paths under
 `packages`; each path gets independent version tracking and a changelog.
 
 See [docs/RELEASES.md](docs/RELEASES.md) for the flow, version rules, required repository settings, and post-release job pattern.

@@ -53,7 +53,14 @@ rather keep the old version line, is to push a tag matching the manifest at the 
 
 ## Adapt It to a Project
 
-The template uses release-please's `simple` release type so it works without a language-specific package file. Change `release-type` when the project should update a native version file, for example `go`, `node`, `python`, `rust`, or `helm`.
+The template uses release-please's `simple` release type, which maintains `version.txt` and needs no
+language-specific package file. Change `release-type` to `node`, `python`, `rust` or `helm` when release-please
+should maintain the project's native manifest instead.
+
+`go` is the exception. Go modules are versioned by tags, so that strategy maintains only the changelog and the
+tag: its `version-file` option defaults to empty and the file updater is registered only when it is set.
+Switching to `go` without setting `"version-file"` leaves `version.txt` frozen with nothing replacing it, and
+the version stamped into release binaries goes stale with it.
 
 Add `extra-files` under `packages["."]` when the same version must be stamped into other files. The included release-assets workflow is a small Go example; customize or remove its call for other project types. Additional post-release jobs use:
 
