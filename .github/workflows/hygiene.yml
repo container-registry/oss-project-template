@@ -275,7 +275,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # $1 = --lang, $2 = "filled" or "blank" optional values.
+          # $1 = "go" or "none" (the --lang value), $2 = "filled" or "blank".
           #
           # Both matter: blank exercises removing the optional blocks, filled
           # exercises keeping them. Rehearsing only the blank path is how

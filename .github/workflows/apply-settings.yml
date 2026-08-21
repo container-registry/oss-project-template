@@ -71,7 +71,16 @@ jobs:
         if: env.HAS_SETTINGS_TOKEN == 'true'
         run: |
           set -euo pipefail
-          python3 -c 'import yaml' 2>/dev/null || pip install --disable-pip-version-check pyyaml
+          # No install fallback here, deliberately. This is the one job that
+          # can hold an administration token, and an unpinned PyPI install
+          # would execute third-party code in the workspace before the step
+          # that uses that token - including code able to rewrite
+          # apply-settings.js. PyYAML ships on GitHub's Ubuntu runners; a
+          # runner without it should fail loudly rather than fetch one.
+          python3 -c 'import yaml' 2>/dev/null || {
+            echo "::error::PyYAML is required and was not found. Install it on the runner image; this job will not fetch it." >&2
+            exit 1
+          }
           python3 -c '
           import json, yaml
           with open(".github/settings.yml") as handle:
