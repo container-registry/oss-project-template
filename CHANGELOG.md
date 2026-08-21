@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.0.0 (2026-08-21)
+
+
+### Features
+
+* add generic release-please flow ([#5](https://github.com/container-registry/oss-project-template/issues/5)) ([ec5d370](https://github.com/container-registry/oss-project-template/commit/ec5d370fe49ea4fed81cdcc2c6d2f4c32448a053))
+* complete the template - self-validating CI, security defaults, rehearsed adoption ([#6](https://github.com/container-registry/oss-project-template/issues/6)) ([55cdd57](https://github.com/container-registry/oss-project-template/commit/55cdd5782400e1c33015e40b8c3a6e1549d64c27))
+
+
+### Documentation
+
+* update contributors ([ee8bd78](https://github.com/container-registry/oss-project-template/commit/ee8bd78ec06424ea5c8adb93842e82f3d851951e))
+
 ## [1.1.0](https://github.com/container-registry/oss-project-template/compare/app-v1.0.0...app-v1.1.0) (2026-01-26)
 
 
