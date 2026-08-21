@@ -17,11 +17,30 @@ Release state is defined by conventional commits on `main`, `release-please-conf
 | `fix:` | Patch | Bug Fixes |
 | `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | Major, or minor while the version is below `1.0.0` | Breaking Changes |
 | `perf:`, `revert:`, `docs:`, `refactor:` | Patch | Own section |
-| `ci:`, `chore:`, `build:`, `style:`, `test:` | Patch | Not shown |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | None | Not shown |
 
-The `Release notes` column is set by `changelog-sections` in `release-please-config.json`. Marking a section
-`hidden: true` removes it from the changelog; treat it as a presentation setting, not as a way to stop a commit
-from producing a release. Confirm the bump you expect with a dry run before relying on it:
+Both columns are set by `changelog-sections` in `release-please-config.json`, and the second drives the first.
+A section marked `hidden: true` contributes no lines to the changelog entry, and release-please skips the
+release outright when the entry comes out empty:
+
+```ts
+// release-please src/strategies/base.ts
+if (!bumpOnlyOptions && this.changelogEmpty(releaseNotesBody)) {
+  this.logger.info(`No user facing commits found since ... - skipping`);
+  return undefined;
+}
+```
+
+So the rule is about the release notes, not about the commit type:
+
+- A push of only hidden types (`chore:`, `ci:`, ...) releases nothing.
+- A push containing **any** visible commit cuts a release, and the bump is minor for `feat:`, major for a
+  breaking change, and patch for everything else. One `docs:` alongside five `chore:` commits is a patch
+  release, and the changelog shows only the `docs:` line.
+- To make a type releasable, give it a visible section. To stop a change releasing regardless of its type,
+  add its path to `exclude-paths`.
+
+Confirm the bump you expect with a dry run before relying on it:
 
 ```bash
 npx release-please release-pr --dry-run \
