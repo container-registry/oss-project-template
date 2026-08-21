@@ -4,19 +4,28 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
+permissions: {}
+
+concurrency:
+  group: all-contributors-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   contributors:
+    # Pushes a commit back to the default branch, so only run it on the
+    # canonical repository. A fork would fail on the push.
+    if: ${{ !github.event.repository.fork }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Update contributors
-        uses: akhilmhdh/contributors-readme-action@v2.3.2
+        uses: akhilmhdh/contributors-readme-action@83ea0b4f1ac928fbfe88b9e8460a932a528eb79f  # v2.3.11
         with:
           readme_path: CONTRIBUTORS.md
           columns_per_row: 7

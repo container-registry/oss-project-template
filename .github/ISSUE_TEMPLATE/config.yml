@@ -5,10 +5,10 @@ contact_links:
     url: https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/discussions
     about: Ask questions and discuss with the community
   - name: Documentation
-    url: {{DOCS_URL}}
+    url: "{{DOCS_URL}}"
     about: Check our documentation for guides and references
   - name: Slack Community
-    url: {{SLACK_URL}}
+    url: "{{SLACK_URL}}"
     about: Chat with the community in real-time
   - name: Security Vulnerability
     url: https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/security/advisories/new

@@ -1,5 +1,11 @@
 version: '3'
 
+# The single entry point for every check and build. CI calls `task <name>`
+# rather than duplicating commands, so a green local run means a green CI run.
+# Tool versions come from versions.env.
+
+dotenv: ['versions.env']
+
 vars:
   RELEASE_BINARY: '{{.RELEASE_BINARY | default "app"}}'
   RELEASE_DIST: '{{.RELEASE_DIST | default "dist"}}'
@@ -10,25 +16,68 @@ tasks:
     cmds: [task --list]
 
   check:
-    desc: Run all pre-commit checks
+    desc: Run every gate CI runs
     cmds:
       - task: spellcheck
+      - task: lint:yaml
+      - task: lint:actions
+      - task: lint:repo
       - task: commit-lint
       - task: dco-check
+      - task: lint
+      - task: test
       - task: license-check
 
+  # --- Language-neutral gates ---------------------------------------------
+
   spellcheck:
-    desc: Run spell checker (mirrors CI)
+    desc: Spell check (mirrors the hygiene workflow)
     cmds:
       - typos --config .typos.toml
 
+  lint:yaml:
+    desc: Lint every YAML file
+    cmds:
+      - yamllint --strict .
+
+  lint:actions:
+    desc: Lint the GitHub Actions workflows
+    cmds:
+      - actionlint -color
+
+  lint:repo:
+    desc: Check repository consistency (dangling references, label and release config drift)
+    cmds:
+      - python3 .github/scripts/repo-lint.py
+
+  lint:pins:
+    desc: Check every action is pinned to a full SHA with a version comment
+    cmds:
+      - |
+        failed=0
+        while IFS= read -r file; do
+          while IFS= read -r line || [ -n "$line" ]; do
+            printf '%s' "$line" | grep -qE '^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]' || continue
+            ref=$(printf '%s' "$line" | sed 's/.*uses:[[:space:]]*//' | awk '{print $1}')
+            case "$ref" in ./*) continue ;; esac
+            case "$ref" in
+              docker://*)
+                printf '%s' "$ref" | grep -qE '@sha256:[a-f0-9]{64}$' || { echo "UNPINNED CONTAINER: $file -> $ref"; failed=1; }
+                continue ;;
+            esac
+            printf '%s' "$line" | grep -qE '@[a-f0-9]{40}[[:space:]]+#[[:space:]]*v[0-9]' || { echo "UNPINNED: $file -> $ref"; failed=1; }
+          done < "$file"
+        done < <(find .github/workflows .github/actions -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
+        [ "$failed" -eq 0 ] || exit 1
+        echo "All actions are pinned."
+
   commit-lint:
-    desc: Check commits follow Conventional Commits format
+    desc: Check commits follow Conventional Commits
     cmds:
       - |
         pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+"
         for commit in $(git log --format=%H origin/main..HEAD 2>/dev/null || git log --format=%H -5); do
-          msg=$(git log -1 --format=%s $commit)
+          msg=$(git log -1 --format=%s "$commit")
           if ! echo "$msg" | grep -Eq "$pattern"; then
             echo "ERROR: Commit $commit does not follow Conventional Commits"
             echo "  Message: $msg"
@@ -39,11 +88,11 @@ tasks:
         echo "All commits follow Conventional Commits format"
 
   dco-check:
-    desc: Check commits have DCO sign-off
+    desc: Check commits carry a DCO sign-off
     cmds:
       - |
         for commit in $(git log --format=%H origin/main..HEAD 2>/dev/null || git log --format=%H -5); do
-          if ! git log -1 --format=%B $commit | grep -q "^Signed-off-by:"; then
+          if ! git log -1 --format=%B "$commit" | grep -q "^Signed-off-by:"; then
             echo "ERROR: Commit $commit missing DCO sign-off"
             echo "Fix with: git commit --amend -s"
             exit 1
@@ -51,25 +100,87 @@ tasks:
         done
         echo "All commits have DCO sign-off"
 
-  license-check:
-    desc: Check Go dependency licenses (mirrors CI)
+  # --- Go pack -------------------------------------------------------------
+  # Every task below is skipped when there is no go.mod, so the Taskfile keeps
+  # working after the Go pack is deleted. Replace them for another language.
+
+  build:
+    desc: Build the project
+    status: ['! test -f go.mod']
     cmds:
-      - go-licenses check ./... --disallowed_types=forbidden,restricted,reciprocal,permissive,unknown --ignore=$(go list -m)
-    status:
-      - '! test -f go.mod'
+      - go build -trimpath ./...
+
+  test:
+    desc: Run tests with the race detector
+    status: ['! test -f go.mod']
+    cmds:
+      - go test -race -coverprofile=coverage.out -covermode=atomic ./...
+
+  lint:
+    desc: Run the Go linter
+    status: ['! test -f go.mod']
+    deps: [_require-golangci-lint]
+    cmds:
+      - golangci-lint run
+
+  _require-golangci-lint:
+    internal: true
+    status: ['! test -f go.mod']
+    cmds:
+      - |
+        command -v golangci-lint >/dev/null 2>&1 || {
+          echo "golangci-lint is missing. Install the pinned version with: task install-tools"
+          exit 1
+        }
+
+  vuln-check:
+    desc: Check dependencies for known vulnerabilities
+    status: ['! test -f go.mod']
+    cmds:
+      - go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+
+  license-check:
+    desc: Check dependency licences against the policy
+    status: ['! test -f go.mod']
+    cmds:
+      # `notice` (MIT, Apache-2.0, BSD) and `unencumbered` (CC0, Unlicense) are
+      # the allowed classes. Everything else is rejected, including `unknown`:
+      # a licence we could not classify is not a licence we can ship.
+      - go-licenses check ./... --disallowed_types=forbidden,restricted,reciprocal,unknown --ignore="$(go list -m)"
+
+  license-report:
+    desc: Write a dependency licence report to the CI job summary
+    status: ['! test -f go.mod']
+    cmds:
+      - |
+        go-licenses report ./... --ignore="$(go list -m)" > licenses.csv 2>/dev/null || true
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          {
+            echo "## Dependency licences"
+            echo '```'
+            head -100 licenses.csv
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+        else
+          cat licenses.csv
+        fi
 
   release-assets:
-    desc: Build the example Go release binaries into dist/
+    desc: Build the release binaries into dist/
+    status: ['! test -f go.mod']
     cmds:
       - mkdir -p "{{.RELEASE_DIST}}"
       - task: _release-asset
         vars: {GOOS: linux, GOARCH: amd64}
+      - task: _release-asset
+        vars: {GOOS: linux, GOARCH: arm64}
       - task: _release-asset
         vars: {GOOS: darwin, GOARCH: amd64}
       - task: _release-asset
         vars: {GOOS: darwin, GOARCH: arm64}
       - task: _release-asset
         vars: {GOOS: windows, GOARCH: amd64, EXT: .exe}
+      - task: _release-checksums
 
   _release-asset:
     internal: true
@@ -79,17 +190,58 @@ tasks:
       GOOS: '{{.GOOS}}'
       GOARCH: '{{.GOARCH}}'
       CGO_ENABLED: '0'
-    cmd: go build -trimpath -o "{{.RELEASE_DIST}}/{{.RELEASE_BINARY}}-{{.GOOS}}-{{.GOARCH}}{{.EXT}}" "{{.RELEASE_PACKAGE}}"
+    # -trimpath and the version stamp keep the build reproducible and make the
+    # binary able to report which release it came from.
+    cmd: >-
+      go build -trimpath
+      -ldflags="-s -w -X main.version=$(cat version.txt)"
+      -o "{{.RELEASE_DIST}}/{{.RELEASE_BINARY}}-{{.GOOS}}-{{.GOARCH}}{{.EXT}}"
+      "{{.RELEASE_PACKAGE}}"
+
+  _release-checksums:
+    internal: true
+    dir: '{{.RELEASE_DIST}}'
+    cmds:
+      - |
+        if command -v sha256sum >/dev/null 2>&1; then
+          sha256sum ./* > checksums.txt
+        else
+          shasum -a 256 ./* > checksums.txt
+        fi
+
+  # --- Setup ---------------------------------------------------------------
 
   setup:
-    desc: Install tools and git hooks
+    desc: Install the pinned tools and the git hooks
     deps: [install-tools]
     cmds:
       - lefthook install
 
   install-tools:
-    desc: Install required CLI tools
+    desc: Install the CLI tools the checks need, at the pinned versions
     cmds:
-      - echo "Installing typos..." && brew install typos-cli || cargo install typos-cli
-      - command -v lefthook || brew install lefthook || go install github.com/evilmartians/lefthook@latest
-      - test -f go.mod && go install github.com/google/go-licenses@latest || true
+      - command -v typos >/dev/null || brew install typos-cli || cargo install typos-cli
+      - command -v lefthook >/dev/null || brew install lefthook || go install github.com/evilmartians/lefthook@latest
+      - command -v yamllint >/dev/null || pip install "yamllint==${YAMLLINT_VERSION}"
+      - command -v actionlint >/dev/null || brew install actionlint || go install github.com/rhysd/actionlint/cmd/actionlint@v${ACTIONLINT_VERSION}
+      - |
+        test -f go.mod || exit 0
+        command -v golangci-lint >/dev/null || go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCILINT_VERSION}"
+        command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
+
+  clean:
+    desc: Remove build output
+    cmds:
+      - rm -rf dist bin coverage.out licenses.csv
+
+  info:
+    desc: Show the pinned tool versions
+    cmds:
+      - |
+        echo "task           $(task --version 2>/dev/null || echo -)"
+        echo "TASK_VERSION   ${TASK_VERSION}"
+        echo "TYPOS          ${TYPOS_VERSION}"
+        echo "ACTIONLINT     ${ACTIONLINT_VERSION}"
+        echo "YAMLLINT       ${YAMLLINT_VERSION}"
+        echo "GOLANGCILINT   ${GOLANGCILINT_VERSION:--}"
+        echo "GOVULNCHECK    ${GOVULNCHECK_VERSION:--}"

@@ -51,13 +51,3 @@
 * add private vulnerability reporting settings to configuration ([74d9dd5](https://github.com/container-registry/oss-project-template/commit/74d9dd52ea6a6a993d93b2329425c72883bf9602))
 * repository settings with workflow and not as app for clear feedback and support of all apis ([c3a43d5](https://github.com/container-registry/oss-project-template/commit/c3a43d50b723ac2d24d759f3660316fd51ce8283))
 * update checklist and add LICENSE file with Apache 2.0 terms ([b648c4a](https://github.com/container-registry/oss-project-template/commit/b648c4a52997dddde9f1edf760638de5a92736d5))
-
-## Changelog
-
-All notable changes to this project will be documented in this file.
-
-This changelog mirrors [GitHub Releases](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/releases).
-
----
-
-<!-- New releases will be inserted here automatically by changelog-sync workflow -->

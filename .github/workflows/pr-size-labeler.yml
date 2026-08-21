@@ -4,15 +4,22 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
-  pull-requests: write
+# See the note in labeler.yml about pull_request_target. No checkout here either.
+permissions: {}
+
+concurrency:
+  group: size-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   size-label:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
-      - uses: codelytv/pr-size-labeler@v1
+      - uses: codelytv/pr-size-labeler@095a41fca88b8764fd9e008ad269bcdb82bb38b9  # v1.10.4
         with:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           xs_label: 'size/XS'

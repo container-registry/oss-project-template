@@ -1,0 +1,202 @@
+---
+name: Hygiene
+
+# Repository hygiene gates that apply to every project regardless of language:
+# spelling, workflow correctness, workflow security, and dependency review.
+# Language-specific build and test gates live in ci.yml.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: hygiene-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typos:
+    name: Spell Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install typos
+        run: |
+          set -euo pipefail
+          # versions.env is the single source of truth for the pin and the checksum.
+          . ./versions.env
+
+          # The checksum in versions.env covers the x86_64 musl asset only,
+          # which is what ubuntu-latest provides. Fail loudly anywhere else
+          # rather than silently skipping verification.
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "::error::TYPOS_SHA256_LINUX_X86_64 is pinned for x86_64 only; runner is $(uname -m)"
+            exit 1
+          fi
+
+          url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL "$url" -o /tmp/typos.tar.gz
+          echo "${TYPOS_SHA256_LINUX_X86_64}  /tmp/typos.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/typos.tar.gz -C /usr/local/bin --strip-components=1 --no-same-owner ./typos
+
+      - name: Check spelling
+        run: typos --config .typos.toml
+
+  actionlint:
+    name: Lint Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install actionlint
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL "$url" -o /tmp/actionlint.tar.gz
+          echo "${ACTIONLINT_SHA256_LINUX_AMD64}  /tmp/actionlint.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/actionlint.tar.gz -C /usr/local/bin --no-same-owner actionlint
+
+      - name: Run actionlint
+        run: actionlint -color
+
+  yamllint:
+    name: Lint YAML
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install yamllint
+        run: |
+          set -euo pipefail
+          . ./versions.env
+          pip install --disable-pip-version-check "yamllint==${YAMLLINT_VERSION}"
+
+      - name: Run yamllint
+        run: yamllint --strict .
+
+  repo-lint:
+    name: Repository Consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check repository consistency
+        run: python3 .github/scripts/repo-lint.py
+
+  zizmor:
+    name: Audit Workflow Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # SARIF upload needs security-events: write. On a private repository
+      # without GitHub Advanced Security this upload fails; drop the zizmor job
+      # or set `advanced-security: false` there.
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@3dc1ecc9bcb9e94e9b2c709687979e1298497054  # v0.6.2
+        with:
+          inputs: .
+          online-audits: true
+          persona: regular
+
+  pinned-actions:
+    name: Check Action Pins
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Every action must be pinned to a full SHA with a version comment
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS= read -r file; do
+            # `|| [ -n "$line" ]` still handles a final line with no trailing newline
+            while IFS= read -r line || [ -n "$line" ]; do
+              # Anchor on the YAML key: a bare `*uses:*` glob also matches
+              # shell text inside this very script.
+              printf '%s' "$line" | grep -qE '^[[:space:]]*(-[[:space:]]+)?uses:[[:space:]]' || continue
+              ref=$(printf '%s' "$line" | sed 's/.*uses:[[:space:]]*//' | awk '{print $1}')
+              # Local composite actions carry no ref to pin.
+              case "$ref" in ./*) continue ;; esac
+              # Container actions pin by image digest instead of a commit SHA.
+              case "$ref" in
+                docker://*)
+                  if ! printf '%s' "$ref" | grep -qE '@sha256:[a-f0-9]{64}$'; then
+                    echo "UNPINNED CONTAINER: $file -> $ref"
+                    failed=1
+                  fi
+                  continue
+                  ;;
+              esac
+              if ! printf '%s' "$line" | grep -qE '@[a-f0-9]{40}[[:space:]]+#[[:space:]]*v[0-9]'; then
+                echo "UNPINNED OR MISSING '# vX.Y.Z' COMMENT: $file -> $ref"
+                failed=1
+              fi
+            done < "$file"
+          done < <(find .github/workflows .github/actions -type f \( -name '*.yml' -o -name '*.yaml' \) 2>/dev/null)
+
+          if [ "$failed" -eq 1 ]; then
+            echo ""
+            echo "Pin every 'uses:' to a full 40-character commit SHA followed by a version comment."
+            echo "  actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1"
+            echo "A tag is a moving target: whoever controls the repository can repoint it."
+            exit 1
+          fi
+          echo "All actions are pinned."
+
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      # A real gate, deliberately not continue-on-error. Requires the dependency
+      # graph, which is on by default for public repositories.
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+          comment-summary-in-pr: always

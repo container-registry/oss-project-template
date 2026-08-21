@@ -1,0 +1,29 @@
+---
+# Deliberately lenient. The job of this linter here is to catch YAML that is
+# wrong, not YAML that is styled differently: workflow files are wide, GitHub
+# requires the `on:` key that yamllint reads as the boolean `true`, and
+# generated files should not be reformatted by hand.
+extends: default
+
+ignore: |
+  node_modules/
+  dist/
+  .task/
+  vendor/
+
+rules:
+  line-length: disable
+  comments-indentation: disable
+  # `on:` in a workflow is the trigger key, not the boolean true.
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
+  # Pure style, and GitHub's own workflow docs do not use it.
+  document-start: disable
+  braces:
+    # Empty flow mappings are how `permissions: {}` denies every scope.
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+  indentation:
+    spaces: consistent
+    indent-sequences: consistent

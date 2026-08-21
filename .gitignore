@@ -1,5 +1,7 @@
 bin
 temp
 .idea
-.claude
+.claude/settings.local.json
+.claude/plans/
+.claude/.cc-writes/
 .task/

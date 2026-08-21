@@ -136,11 +136,6 @@ Replace these placeholders in all files:
 | `.typos.toml` | Spell checker configuration |
 | `docs/RELEASES.md` | Generic release process and extension points |
 
-### Scripts
-| File | Purpose |
-|------|---------|
-| `scripts/export-settings.sh` | Export current repo settings to YAML for diffing |
-
 ### Community Files
 | File | Purpose |
 |------|---------|

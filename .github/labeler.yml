@@ -13,8 +13,9 @@ component/ci:
   - changed-files:
       - any-glob-to-any-file:
           - '.github/**/*'
-          - 'Makefile'
           - 'Taskfile.yml'
+          - 'taskfile/**'
+          - 'lefthook.yml'
 
 # Dependencies
 dependencies:
@@ -28,15 +29,18 @@ dependencies:
           - 'Cargo.toml'
           - 'Cargo.lock'
 
-# Configuration changes
+# Configuration changes.
+# Deliberately narrow: globbing '*.yml' at the root matches Taskfile.yml, lefthook.yml and every
+# workflow, so the label landed on nearly every pull request and stopped meaning anything.
 component/config:
   - changed-files:
       - any-glob-to-any-file:
-          - '*.yml'
-          - '*.yaml'
-          - '*.json'
-          - '*.toml'
-          - '*.ini'
+          - 'config/**'
+          - 'configs/**'
+          - '.editorconfig'
+          - '.typos.toml'
+          - '.yamllint'
+          - 'versions.env'
 
 # Tests
 tests:

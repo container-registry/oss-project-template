@@ -43,11 +43,12 @@ This file maps 1:1 to GitHub REST API and is auto-applied on push to main.
 - [ ] Uncomment and configure branch protection rules if needed
 - [ ] Add project-specific component labels
 
-**Export current settings:**
+**Compare `settings.yml` against the live repository:**
 ```bash
-./scripts/export-settings.sh > current.yml
-diff .github/settings.yml current.yml
+gh workflow run apply-settings.yml -f mode=check
 ```
+`check` exports the current GitHub state, diffs it against `settings.yml`, and fails on any difference. It also
+runs every Monday on a schedule, so drift is reported without anyone asking for it.
 
 ---
 
@@ -311,7 +312,6 @@ go install github.com/evilmartians/lefthook@latest
 | `task dco-check` | Check commits have DCO sign-off |
 | `task license-check` | Check Go dependency licenses |
 | `task setup` | Install tools and git hooks |
-| `./scripts/export-settings.sh` | Export current repo settings to YAML |
 
 ### Setup
 
