@@ -275,8 +275,23 @@ jobs:
         run: |
           set -euo pipefail
 
+          # $1 = --lang, $2 = "filled" or "blank" optional values.
+          #
+          # Both matter: blank exercises removing the optional blocks, filled
+          # exercises keeping them. Rehearsing only the blank path is how
+          # leftover marker comments shipped once already.
           rehearse() {
             lang="$1"
+            optional="$2"
+            if [ "$optional" = "filled" ]; then
+              docs="https://docs.example.test"
+              slack="https://slack.example.test"
+              home="https://example.test"
+            else
+              docs=""
+              slack=""
+              home=""
+            fi
             work="$(mktemp -d)"
             tar -c --exclude=.git . | tar -x -C "$work"
 

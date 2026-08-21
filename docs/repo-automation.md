@@ -38,7 +38,7 @@ short version of this in a header comment; this is the map.
 
 | File | Purpose |
 |------|---------|
-| `.github/scripts/apply-settings.js` | Applies, verifies or drift-checks `settings.yml` |
+| `.github/scripts/apply-settings.js` | Applies, verifies or drift-checks `settings.yml`. Reads JSON the workflow converts, so it needs no YAML parser |
 | `.github/scripts/repo-lint.py` | Repository consistency checks, also run by `task lint:repo` |
 
 ## Secrets

@@ -1,9 +1,11 @@
 const fs = require('fs')
-const yaml = require('js-yaml')
 
 module.exports = async ({ github, context, core }) => {
   const { owner, repo } = context.repo
-  const settings = yaml.load(fs.readFileSync('.github/settings.yml', 'utf8'))
+  // Converted from .github/settings.yml to JSON by the workflow step before
+  // this one. Parsing the YAML here would mean an npm dependency in the one
+  // job that can hold an administration token.
+  const settings = JSON.parse(fs.readFileSync(process.env.SETTINGS_JSON, 'utf8'))
   const mode = process.env.INPUT_MODE || (context.eventName === 'schedule' ? 'check' : 'verify')
   core.info(`Mode: ${mode}`)
 

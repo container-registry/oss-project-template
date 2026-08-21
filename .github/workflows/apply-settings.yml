@@ -63,19 +63,27 @@ jobs:
         with:
           persist-credentials: false
 
-      # npm ci from the committed lockfile, not npm install: this is the one
-      # job that can hold an administration token, so the dependency tree is
-      # integrity-pinned rather than resolved at run time. --ignore-scripts
-      # means no install hook executes here either.
-      - name: Install js-yaml
+      # settings.yml is converted to JSON here so the script below needs no
+      # YAML parser. That keeps a third-party dependency out of the one job
+      # that can hold an administration token. PyYAML ships on GitHub's Ubuntu
+      # runners; the install is a fallback, not the normal path.
+      - name: Convert settings.yml to JSON
         if: env.HAS_SETTINGS_TOKEN == 'true'
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: |
+          set -euo pipefail
+          python3 -c 'import yaml' 2>/dev/null || pip install --disable-pip-version-check pyyaml
+          python3 -c '
+          import json, yaml
+          with open(".github/settings.yml") as handle:
+              json.dump(yaml.safe_load(handle), open("settings.json", "w"))
+          '
 
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         if: env.HAS_SETTINGS_TOKEN == 'true'
         env:
           # schedule has no inputs, so a cron run is a drift check; everything else applies and verifies.
           INPUT_MODE: ${{ inputs.mode || (github.event_name == 'schedule' && 'check' || 'verify') }}
+          SETTINGS_JSON: settings.json
         with:
           github-token: ${{ secrets.SETTINGS_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
