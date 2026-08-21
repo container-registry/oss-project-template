@@ -63,20 +63,18 @@ jobs:
         with:
           persist-credentials: false
 
-      # settings.yml is converted to JSON here so the script below needs no
-      # YAML parser. That keeps a third-party dependency out of the one job
-      # that can hold an administration token. PyYAML ships on GitHub's Ubuntu
-      # runners; the install is a fallback, not the normal path.
+      # settings.yml is converted to JSON so the script below needs no YAML
+      # parser, which keeps every third-party dependency out of the one job
+      # that can hold an administration token.
+      #
+      # PyYAML ships on GitHub's Ubuntu runners and is required, not fetched:
+      # an unpinned PyPI install here would execute third-party code in the
+      # workspace before the step that uses the token, including code able to
+      # rewrite apply-settings.js. A runner without it fails loudly instead.
       - name: Convert settings.yml to JSON
         if: env.HAS_SETTINGS_TOKEN == 'true'
         run: |
           set -euo pipefail
-          # No install fallback here, deliberately. This is the one job that
-          # can hold an administration token, and an unpinned PyPI install
-          # would execute third-party code in the workspace before the step
-          # that uses that token - including code able to rewrite
-          # apply-settings.js. PyYAML ships on GitHub's Ubuntu runners; a
-          # runner without it should fail loudly rather than fetch one.
           python3 -c 'import yaml' 2>/dev/null || {
             echo "::error::PyYAML is required and was not found. Install it on the runner image; this job will not fetch it." >&2
             exit 1
