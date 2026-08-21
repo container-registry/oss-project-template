@@ -132,19 +132,11 @@ tasks:
   lint:
     desc: Run the Go linter
     status: ['! test -f go.mod']
-    deps: [_require-golangci-lint]
     cmds:
-      - golangci-lint run
-
-  _require-golangci-lint:
-    internal: true
-    status: ['! test -f go.mod']
-    cmds:
-      - |
-        command -v golangci-lint >/dev/null 2>&1 || {
-          echo "golangci-lint is missing. Install the pinned version with: task install-tools"
-          exit 1
-        }
+      # `go run <module>@<version>` rather than requiring a preinstalled
+      # binary: the version comes from versions.env, so a local run and a CI
+      # run use the same linter and neither has to install anything first.
+      - go run "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCILINT_VERSION}" run
 
   tidy-check:
     desc: Fail if go.mod or go.sum is not tidy
@@ -181,14 +173,14 @@ tasks:
       # on the first hashicorp dependency, and the adopter deletes the gate.
       # `permissive` is absent too and should stay that way - upstream defines
       # it as an empty set, so listing it only looks like policy.
-      - go-licenses check ./... --disallowed_types=forbidden,restricted,unknown --ignore="$(go list -m)"
+      - go run "github.com/google/go-licenses/v2@${GOLICENSES_VERSION}" check ./... --disallowed_types=forbidden,restricted,unknown --ignore="$(go list -m)"
 
   license-report:
     desc: Write a dependency licence report to the CI job summary
     status: ['! test -f go.mod']
     cmds:
       - |
-        go-licenses report ./... --ignore="$(go list -m)" > licenses.csv 2>/dev/null || true
+        go run "github.com/google/go-licenses/v2@${GOLICENSES_VERSION}" report ./... --ignore="$(go list -m)" > licenses.csv 2>/dev/null || true
         if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
           {
             echo "## Dependency licences"
@@ -259,10 +251,8 @@ tasks:
       - command -v lefthook >/dev/null || brew install lefthook || go install github.com/evilmartians/lefthook@latest
       - command -v yamllint >/dev/null || pip install "yamllint==${YAMLLINT_VERSION}"
       - command -v actionlint >/dev/null || brew install actionlint || go install github.com/rhysd/actionlint/cmd/actionlint@v${ACTIONLINT_VERSION}
-      - |
-        test -f go.mod || exit 0
-        command -v golangci-lint >/dev/null || go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCILINT_VERSION}"
-        command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
+      # The Go tools are not installed: `task lint`, `task license-check` and
+      # `task vuln-check` fetch them at the pinned version with `go run`.
 
   clean:
     desc: Remove build output
