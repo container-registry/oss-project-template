@@ -179,6 +179,27 @@ def remove_go_pack(dry_run: bool) -> None:
         print("removed the publish jobs from release-please.yml")
 
 
+def strip_release_migration_keys(dry_run: bool) -> None:
+    """Remove release-please keys that only make sense in the template repo.
+
+    `bootstrap-sha` marks where the template's own history starts. In a new
+    repository it points at a commit that does not exist, so release-please
+    would look for it, never find it, and fall back to the full history.
+    """
+    config = ROOT / "release-please-config.json"
+    if not config.exists():
+        return
+
+    text = config.read_text(encoding="utf-8")
+    stripped = re.sub(r'^[ \t]*"bootstrap-sha":[^\n]*\n', "", text, flags=re.M)
+    if stripped == text:
+        return
+
+    print(f"{'would remove' if dry_run else 'removing'} bootstrap-sha from release-please-config.json")
+    if not dry_run:
+        config.write_text(stripped, encoding="utf-8")
+
+
 def write_provenance(values: dict[str, str], dry_run: bool) -> None:
     """Record where this repository came from.
 
@@ -228,6 +249,7 @@ def main() -> int:
     if args.lang == "none":
         remove_go_pack(args.dry_run)
 
+    strip_release_migration_keys(args.dry_run)
     write_provenance(values, args.dry_run)
 
     for rel in TEMPLATE_ONLY:

@@ -31,22 +31,36 @@ npx release-please release-pr --dry-run \
 
 ## The Version Baseline
 
-release-please finds the previous release by looking for the tag that matches the version in
-`.release-please-manifest.json`. The template ships `0.0.0` in both the manifest and `version.txt`, so a new
-repository starts from zero and the first `feat:` produces `v0.1.0`.
+release-please finds the previous release by looking for the tag matching the version in
+`.release-please-manifest.json`. A new repository starts at `0.0.0` with no tags, so the first `feat:`
+produces `v0.1.0`.
 
-**If the repository already has releases, the manifest version and the newest `vX.Y.Z` tag must agree.** When they
-do not -- for example after switching from component tags such as `app-v1.1.0` to plain `vX.Y.Z` -- release-please
-finds no matching tag, walks the whole history, and repeats old commits in the next changelog. Fix it before the
-first release by either:
+**If the repository already has releases, the manifest version and the newest tag must agree.** When they do
+not, release-please finds no previous release, walks the whole history, and replays old commits into the next
+changelog. That is the case in this repository: its only release is tagged `app-v1.1.0`, which the `vX.Y.Z`
+scheme does not match.
 
-- tagging the existing release commit with the matching tag (`git tag v1.1.0 <sha> && git push origin v1.1.0`), or
-- setting `"bootstrap-sha"` in `release-please-config.json` to the commit the history should start from, then
-  removing that key once the first release under the new scheme has been cut.
+`release-please-config.json` therefore carries a one-time migration boundary:
+
+```json
+"bootstrap-sha": "9d06252c11397e07c9ea95c260dd2213869d605f"
+```
+
+**Delete that key once the first release under the new scheme has been cut.** It is a migration aid, not
+configuration, and it is meaningless in a repository created from this template. The alternative, if you would
+rather keep the old version line, is to push a tag matching the manifest at the existing release commit
+(`git tag v1.1.0 b9d64b1 && git push origin v1.1.0`) and set the manifest back to `1.1.0`.
 
 ## Adapt It to a Project
 
-The template uses release-please's `simple` release type so it works without a language-specific package file. Change `release-type` when the project should update a native version file, for example `go`, `node`, `python`, `rust`, or `helm`.
+The template uses release-please's `simple` release type, which maintains `version.txt` and needs no
+language-specific package file. Change `release-type` to `node`, `python`, `rust` or `helm` when release-please
+should maintain the project's native manifest instead.
+
+`go` is the exception. Go modules are versioned by tags, so that strategy maintains only the changelog and the
+tag: its `version-file` option defaults to empty and the file updater is registered only when it is set.
+Switching to `go` without setting `"version-file"` leaves `version.txt` frozen with nothing replacing it, and
+the version stamped into release binaries goes stale with it.
 
 `exclude-paths` is set to `docs`, so a documentation-only change does not cut a release. The inverse is the
 part that surprises people: a `feat:` whose every changed file sits under an excluded path releases nothing,
