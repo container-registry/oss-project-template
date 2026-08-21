@@ -184,7 +184,7 @@ This template uses conventional commits for automatic versioning:
 | `fix:` | Patch | Bug Fixes | `fix: resolve login timeout` |
 | `feat!:` or `fix!:` | Major (minor below 1.0.0) | Breaking Changes | `feat!: redesign API endpoints` |
 | `docs:`, `perf:`, `refactor:`, `revert:` | Patch | Own section | `docs: update README` |
-| `ci:`, `chore:`, `build:`, `style:`, `test:` | None | Not shown | `chore: update dependencies` |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | None on their own | Not shown | `chore: update dependencies` |
 
 A section marked `hidden: true` in `changelog-sections` contributes nothing to the changelog, and release-please
 skips a release whose changelog would be empty. That is what makes the last row "None" - and why a push mixing

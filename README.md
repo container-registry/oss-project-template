@@ -34,7 +34,7 @@ Signed-off-by: Name <email>
 - `fix:` → patch bump (0.1.0 → 0.1.1)
 - `feat!:` or `fix!:` (breaking) → major bump, or minor while on 0.x
 - `perf:`, `revert:`, `docs:`, `refactor:` → patch bump
-- `ci:`, `chore:`, `build:`, `style:`, `test:` → no release
+- `ci:`, `chore:`, `build:`, `style:`, `test:` → no release on their own
 
 Those last two lines come from `changelog-sections` in `release-please-config.json`, not from the commit type
 itself. A section marked `hidden: true` contributes no changelog lines, and release-please skips the release
