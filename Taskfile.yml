@@ -115,7 +115,9 @@ tasks:
     desc: Build the project
     status: ['! test -f go.mod']
     cmds:
-      - go build -trimpath ./...
+      # -o bin/ matters: a bare `go build ./...` drops a binary per main
+      # package into the repository root, where `git add -A` picks it up.
+      - go build -trimpath -o bin/ ./...
 
   test:
     desc: Run tests with the race detector

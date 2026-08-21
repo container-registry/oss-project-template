@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -272,6 +273,47 @@ MARKER_RES = (
 )
 
 
+# Leading bytes of the executable formats a build is likely to leave behind.
+BINARY_MAGIC = (
+    b"\x7fELF",          # ELF
+    b"\xfe\xed\xfa\xce",  # Mach-O 32
+    b"\xfe\xed\xfa\xcf",  # Mach-O 64
+    b"\xce\xfa\xed\xfe",  # Mach-O 32, byte-swapped
+    b"\xcf\xfa\xed\xfe",  # Mach-O 64, byte-swapped
+    b"\xca\xfe\xba\xbe",  # Mach-O universal
+    b"MZ",                 # PE
+)
+
+
+def check_no_committed_binaries(errors: list[str]) -> None:
+    """No compiled executable may be tracked.
+
+    `go build ./...` writes a binary named after the package directory into the
+    working directory, and `git add -A` then commits it. It happened in this
+    repository, and a template that ships one hands it to every adopter.
+    """
+    try:
+        tracked = subprocess.run(
+            ["git", "-C", str(ROOT), "ls-files", "-z"],
+            capture_output=True, check=True,
+        ).stdout.split(b"\0")
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        return  # not a git checkout; nothing to assert
+
+    for raw in tracked:
+        if not raw:
+            continue
+        rel = raw.decode("utf-8", "replace")
+        path = ROOT / rel
+        if not path.is_file() or path.is_symlink():
+            continue
+        with path.open("rb") as handle:
+            head = handle.read(4)
+        if any(head.startswith(magic) for magic in BINARY_MAGIC):
+            size = path.stat().st_size
+            errors.append(f"{rel}: a compiled executable is committed ({size} bytes)")
+
+
 def check_bootstrap_left_nothing_behind(errors: list[str]) -> None:
     """After bootstrap, no placeholder and no bootstrap marker may survive.
 
@@ -307,6 +349,7 @@ CHECKS = (
     check_issue_template_config,
     check_local_workflow_calls_resolve,
     check_bootstrap_left_nothing_behind,
+    check_no_committed_binaries,
 )
 
 

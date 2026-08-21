@@ -1,7 +1,9 @@
-# Build output
+# Build output. `go build ./...` names a binary after its directory, so the
+# repository name itself ends up here.
 bin/
 dist/
 *.exe
+/{{REPO_NAME}}
 
 # Test and lint output
 coverage.out
