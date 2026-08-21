@@ -1,0 +1,38 @@
+---
+# GitHub-native, no app to install. Its main job here is keeping the action
+# SHA pins current: pinning without an updater just means pinning to something
+# old, and Dependabot rewrites the SHA and the version comment together.
+#
+# Prefer optional/renovate.json instead if the project wants grouped updates
+# or needs versions.env kept in sync. Do not run both.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, component/ci]
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    commit-message:
+      prefix: fix
+      prefix-development: chore
+    groups:
+      # One pull request for the routine bumps; majors stay separate so they
+      # get read.
+      go-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies]
+    commit-message:
+      prefix: build

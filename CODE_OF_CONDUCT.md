@@ -24,8 +24,14 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of unacceptable behavior may be reported to the project maintainers.
-All complaints will be reviewed and investigated promptly and fairly.
+Report unacceptable behavior to **{{CONDUCT_EMAIL}}**. Reports go to the maintainers listed in
+[MAINTAINERS.md](MAINTAINERS.md).
+
+All complaints are reviewed and investigated promptly and fairly. The reporter's identity is kept
+confidential. If a report concerns a maintainer, that maintainer takes no part in handling it.
+
+Maintainers may warn, temporarily suspend, or permanently ban anyone whose behavior they judge to breach
+this code.
 
 ## Attribution
 

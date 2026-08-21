@@ -1,0 +1,14 @@
+# Requested as reviewers automatically. Paths are matched last-rule-wins, so
+# put the general rule first and narrow it below.
+#
+# This is only enforced when the branch ruleset sets require_code_owner_review,
+# which .github/settings.yml leaves off by default.
+#
+# Keep in sync with MAINTAINERS.md.
+
+* @{{ORG_NAME}}/maintainers
+
+# Changes here alter what runs with repository credentials, so they get a
+# closer look than the rest of the tree.
+/.github/                @{{ORG_NAME}}/maintainers
+/SECURITY.md             @{{ORG_NAME}}/maintainers

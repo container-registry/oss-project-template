@@ -139,33 +139,68 @@ labels:
     description: Build system changes
 
 security:
+  # Secret scanning and push protection are free on public repositories and
+  # this is the organisation default for new ones. Push protection is the one
+  # that matters: it blocks the commit rather than reporting it afterwards.
+  # On a private repository both require GitHub Advanced Security.
   secret_scanning:
-    status: disabled
+    status: enabled
   secret_scanning_push_protection:
-    status: disabled
+    status: enabled
   dependabot_security_updates:
     status: enabled
+  # Makes the "report a vulnerability" button real. SECURITY.md and the issue
+  # template chooser both link to the advisory form, which errors without this.
+  private_vulnerability_reporting: enabled
 
 code_scanning:
+  # Set to `configured` to turn on CodeQL default setup. The template instead
+  # ships .github/workflows/codeql.yml, which is the advanced setup; running
+  # both duplicates every alert.
   state: not-configured
   query_suite: default  # default, extended
   languages: [actions, go]
 
-# rulesets:
-#   require-pr:
-#     target: branch
-#     enforcement: active
-#     bypass_actors: []
-#     conditions:
-#       ref_name:
-#         include: [refs/heads/main]
-#         exclude: []
-#     rules:
-#       - type: pull_request
-#         parameters:
-#           required_approving_review_count: 1
-#           dismiss_stale_reviews_on_push: true
-#           require_code_owner_review: false
+rulesets:
+  # Shipped active. A project that does not want it deletes this block, which
+  # is a decision someone makes on purpose rather than one nobody ever gets to.
+  # Bypass nobody: a rule an admin routinely walks around is not a rule.
+  protect-default-branch:
+    target: branch
+    enforcement: active
+    bypass_actors: []
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+    rules:
+      - type: deletion
+      - type: non_fast_forward  # blocks force pushes
+      - type: pull_request
+        parameters:
+          # Zero, not one. The rule that matters is that everything goes
+          # through a pull request with green checks; requiring an approval a
+          # solo maintainer cannot give themselves is how this whole block
+          # ends up deleted. Raise it to 1 as soon as there are two
+          # maintainers who can review each other.
+          required_approving_review_count: 0
+          dismiss_stale_reviews_on_push: true
+          require_code_owner_review: false
+          require_last_push_approval: false
+          required_review_thread_resolution: false
+          allowed_merge_methods: [squash]
+      - type: required_status_checks
+        parameters:
+          strict_required_status_checks_policy: true
+          do_not_enforce_on_create: false
+          required_status_checks:
+            # Names must match the job `name:` as GitHub reports it. Add the
+            # ci.yml checks here once the project has a real build.
+            - context: Spell Check
+            - context: Lint Workflows
+            - context: Lint YAML
+            - context: Repository Consistency
+            - context: Check Action Pins
 
 # branches:
 #   main:

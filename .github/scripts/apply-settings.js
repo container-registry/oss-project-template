@@ -44,10 +44,25 @@ module.exports = async ({ github, context, core }) => {
     core.info('✓ labels')
   }
 
-  // Apply security settings
+  // Apply security settings.
+  //
+  // private_vulnerability_reporting is not part of security_and_analysis; it
+  // has its own endpoint, so it is split out before the rest is passed on.
   async function applySecurity() {
     if (!settings.security) return
-    await github.rest.repos.update({ owner, repo, security_and_analysis: settings.security })
+    const { private_vulnerability_reporting: pvr, ...securityAndAnalysis } = settings.security
+
+    if (Object.keys(securityAndAnalysis).length > 0) {
+      await github.rest.repos.update({ owner, repo, security_and_analysis: securityAndAnalysis })
+    }
+
+    if (pvr !== undefined) {
+      const enable = pvr === true || pvr === 'enabled'
+      await github.request(
+        `${enable ? 'PUT' : 'DELETE'} /repos/{owner}/{repo}/private-vulnerability-reporting`,
+        { owner, repo }
+      )
+    }
     core.info('✓ security')
   }
 
@@ -161,6 +176,14 @@ module.exports = async ({ github, context, core }) => {
       markIfForbidden('actions', e)
     }
 
+    let pvrEnabled
+    try {
+      const pvr = await github.request('GET /repos/{owner}/{repo}/private-vulnerability-reporting', { owner, repo })
+      pvrEnabled = pvr.data.enabled ? 'enabled' : 'disabled'
+    } catch (e) {
+      markIfForbidden('security', e)
+    }
+
     let codeScanningData = {}
     try {
       const cs = await github.request('GET /repos/{owner}/{repo}/code-scanning/default-setup', { owner, repo })
@@ -227,7 +250,8 @@ module.exports = async ({ github, context, core }) => {
       security: r.security_and_analysis ? {
         secret_scanning: { status: r.security_and_analysis.secret_scanning?.status },
         secret_scanning_push_protection: { status: r.security_and_analysis.secret_scanning_push_protection?.status },
-        dependabot_security_updates: { status: r.security_and_analysis.dependabot_security_updates?.status }
+        dependabot_security_updates: { status: r.security_and_analysis.dependabot_security_updates?.status },
+        private_vulnerability_reporting: pvrEnabled
       } : undefined,
       code_scanning: codeScanningData.state ? {
         state: codeScanningData.state,

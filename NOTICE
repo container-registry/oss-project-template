@@ -1,0 +1,18 @@
+{{REPO_NAME}}
+Copyright {{COPYRIGHT_YEAR}} {{COPYRIGHT_HOLDER}}
+
+This product includes software developed at
+{{COPYRIGHT_HOLDER}} (https://github.com/{{ORG_NAME}}).
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full text.
+
+<!--
+Apache-2.0 section 4(d) requires that this file be carried into derivative
+works. List third-party code redistributed inside a release artifact or image
+here, with its licence and where the full text ships. Dependencies pulled at
+build time do not belong here; `task license-report` covers those.
+
+Example:
+  This product bundles syft (https://github.com/anchore/syft),
+  licensed under Apache-2.0. Full text: /licenses/syft-LICENSE in the image.
+-->
