@@ -6,6 +6,7 @@
 #   branches.{name}.protection   -> PUT /repos/{owner}/{repo}/branches/{name}/protection
 #   security                     -> PATCH /repos/{owner}/{repo} (security_and_analysis)
 #   code_scanning                -> PATCH /repos/{owner}/{repo}/code-scanning/default-setup
+#   actions                      -> PUT /repos/{owner}/{repo}/actions/permissions/workflow
 #   rulesets.{name}              -> POST/PUT /repos/{owner}/{repo}/rulesets
 #   environments.{name}          -> PUT /repos/{owner}/{repo}/environments/{name}
 #
@@ -35,6 +36,12 @@ repository:
   merge_commit_title: MERGE_MESSAGE
   merge_commit_message: PR_TITLE
   web_commit_signoff_required: false
+
+# Required for release-please to open and maintain its release pull request.
+actions:
+  default_workflow_permissions: read
+  can_approve_pull_request_reviews: true
+
 labels:
   blocked:
     color: e11d21

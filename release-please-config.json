@@ -1,21 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "pull-request-header": "This PR prepares the next release based on conventional commits.",
-  "separate-pull-requests": true,
-  "pull-request-title-pattern": "chore: release ${component} ${version}",
-  "include-component-in-tag": true,
-  "exclude-paths": ["CONTRIBUTORS.md"],
+  "pull-request-title-pattern": "chore: release ${version}",
+  "release-type": "simple",
+  "include-v-in-tag": true,
+  "bootstrap-sha": "9d06252c11397e07c9ea95c260dd2213869d605f",
+  "bump-minor-pre-major": true,
+  "exclude-paths": [
+    "CONTRIBUTORS.md"
+  ],
   "packages": {
-    ".": {
-      "release-type": "go",
-      "component": "app",
-      "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true
-    },
-    "charts/app": {
-      "release-type": "helm",
-      "component": "helm-chart"
-    }
+    ".": {}
   },
   "changelog-sections": [
     { "type": "feat", "section": "Features" },
@@ -23,10 +18,11 @@
     { "type": "perf", "section": "Performance Improvements" },
     { "type": "revert", "section": "Reverts" },
     { "type": "docs", "section": "Documentation" },
-    { "type": "chore", "section": "Miscellaneous" },
     { "type": "refactor", "section": "Code Refactoring" },
-    { "type": "test", "section": "Tests" },
-    { "type": "build", "section": "Build System" },
-    { "type": "ci", "section": "CI/CD" }
+    { "type": "test", "section": "Tests", "hidden": true },
+    { "type": "style", "section": "Styles", "hidden": true },
+    { "type": "chore", "section": "Miscellaneous", "hidden": true },
+    { "type": "build", "section": "Build System", "hidden": true },
+    { "type": "ci", "section": "CI/CD", "hidden": true }
   ]
 }

@@ -13,7 +13,7 @@ This template is opinionated. Here's what it assumes and why:
 | **PR-Based Workflow** | All changes via pull requests | Ensures review, CI checks, and audit trail |
 | **DCO Sign-Off** | All commits require `Signed-off-by` | Legal compliance for open source contributions |
 | **Automated Releases** | Version bumps from commit types | Removes manual versioning errors, ensures consistency |
-| **Monorepo Ready** | App + Helm chart tracked independently | Common pattern for cloud-native projects |
+| **Adaptable Versioning** | Generic release type with language-specific extension points | Works before project packaging is finalized |
 | **Local-First** | Lefthook validates before push | Fail fast locally, don't waste CI time |
 | **GitHub-Native** | Maximize GitHub features, minimize external dependencies | Reduces complexity, improves reliability |
 
@@ -31,8 +31,15 @@ Signed-off-by: Name <email>
 
 **Version impact:**
 - `feat:` → minor bump (0.1.0 → 0.2.0)
-- `fix:`, `docs:`, `chore:`, etc. → patch bump (0.1.0 → 0.1.1)
-- `feat!:` or `fix!:` (breaking) → major bump (0.1.0 → 1.0.0)
+- `fix:` → patch bump (0.1.0 → 0.1.1)
+- `feat!:` or `fix!:` (breaking) → major bump, or minor while on 0.x
+- `perf:`, `revert:`, `docs:`, `refactor:` → patch bump
+- `ci:`, `chore:`, `build:`, `style:`, `test:` → no release on their own
+
+Those last two lines come from `changelog-sections` in `release-please-config.json`, not from the commit type
+itself. A section marked `hidden: true` contributes no changelog lines, and release-please skips the release
+when the whole entry comes out empty. So a push of only `chore:` commits releases nothing, while a push
+containing one `docs:` commit and one `chore:` commit cuts a patch. See [docs/RELEASES.md](docs/RELEASES.md).
 
 ## Why This Template?
 
@@ -51,8 +58,8 @@ This template is programming language agnostic. A minimal Go application is incl
 ## Quick Start
 
 1. Copy the `.github/` directory to your repository
-2. Copy the community files (`CODE_OF_CONDUCT.md`, `SUPPORT.md`, `CHANGELOG.md`, `ROADMAP.md`)
-3. Copy `.typos.toml` for spell checking
+2. Copy the community and release files (`CODE_OF_CONDUCT.md`, `SUPPORT.md`, `CHANGELOG.md`, `ROADMAP.md`, `release-please-config.json`, `.release-please-manifest.json`, `version.txt`, `docs/RELEASES.md`)
+3. Copy `Taskfile.yml`, `lefthook.yml`, and `.typos.toml` - the release workflow calls `task release-assets`, and these define the checks that mirror CI
 4. Replace placeholders with your project values
 5. Follow the **[CHECKLIST.md](CHECKLIST.md)** for a complete adoption guide
 
@@ -130,8 +137,10 @@ Replace these placeholders in all files:
 | `.github/labeler.yml` | File pattern to label mapping |
 | `release-please-config.json` | Release-please configuration |
 | `.release-please-manifest.json` | Release-please version manifest |
+| `version.txt` | Generic version file maintained by release-please |
 | `.github/settings.yml` | Repository settings (auto-applied via workflow) |
 | `.typos.toml` | Spell checker configuration |
+| `docs/RELEASES.md` | Generic release process and extension points |
 
 ### Scripts
 | File | Purpose |
@@ -168,25 +177,32 @@ Edit `.typos.toml` to add project-specific terms:
 myterm = "myterm"
 ```
 
-### Monorepo Support
+### Release Automation
 
-Release-please supports multiple packages with independent versioning. The default config tracks both the app and a Helm chart:
+The default release-please config tracks one generic package and creates `vX.Y.Z` tags. Its `simple` release type maintains `version.txt`; switch to a language-specific release type when appropriate:
 
 ```json
 {
+  "release-type": "simple",
   "packages": {
-    ".": { "release-type": "go", "component": "app" },
-    "charts/app": { "release-type": "helm", "component": "helm-chart" }
+    ".": {}
   }
 }
 ```
 
-Each package gets:
-- Independent version tracking in `.release-please-manifest.json`
-- Separate GitHub releases (e.g., `app-v1.0.0`, `helm-chart-v0.5.0`)
-- Its own CHANGELOG.md in its directory
+Use `node`, `python`, `rust`, or `helm` when release-please should maintain the project's native manifest instead
+- `package.json`, `pyproject.toml`, `Cargo.toml`, `Chart.yaml`. Those types do not maintain `version.txt`, so
+delete it when you switch, or keep it in sync by listing it under `extra-files`.
 
-Commits are attributed to packages based on changed paths. Remove the `charts/app` entry if not using Helm.
+`go` is not like the others. Go modules are versioned by tags, so the `go` release type maintains the changelog
+and the tag and nothing else: its `version-file` option defaults to empty, and the file updater is only
+registered when that option is set. Switching a Go project from `simple` to `go` therefore leaves `version.txt`
+frozen at its current value with nothing replacing it - which also stops `task release-assets` stamping the
+right version into the binary. Either stay on `simple`, or set `"version-file": "version.txt"` explicitly.
+
+Monorepos can add package paths under `packages`; each path gets independent version tracking and a changelog.
+
+See [docs/RELEASES.md](docs/RELEASES.md) for the flow, version rules, required repository settings, and post-release job pattern.
 
 ## Requirements
 

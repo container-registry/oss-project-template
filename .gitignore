@@ -3,3 +3,8 @@ temp
 .idea
 .claude
 .task/
+
+# Test and lint output
+coverage.out
+coverage.txt
+licenses.txt

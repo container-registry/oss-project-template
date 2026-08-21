@@ -39,6 +39,7 @@ This file maps 1:1 to GitHub REST API and is auto-applied on push to main.
 - [ ] Update `description` to your project description
 - [ ] Set `homepage` URL (or leave empty)
 - [ ] Review merge strategies (`allow_squash_merge`, etc.)
+- [ ] Keep `actions.can_approve_pull_request_reviews` enabled so release-please can open release PRs
 - [ ] Uncomment and configure branch protection rules if needed
 - [ ] Add project-specific component labels
 
@@ -121,13 +122,18 @@ diff .github/settings.yml current.yml
 
 ### `.github/workflows/release-please.yml`
 
-- [ ] No changes needed (uses `release-please-config.json`)
+- [ ] No changes needed for changelog/tag automation (uses `release-please-config.json`)
+- [ ] Add post-release jobs here if publishing images, charts, binaries, or other artifacts
+- [ ] Give each job you add its own `permissions:` block. The workflow declares `permissions: {}` at the top
+      level, so a new job starts with no scopes and must request exactly what it needs
+      (publishing release assets needs `contents: write`; pushing to GHCR needs `packages: write`;
+      keyless cosign signing needs `id-token: write`)
 
 ### `.github/workflows/release-assets.yml`
 
-- [ ] Update build commands for your language/project
-- [ ] Modify binary names and architectures as needed
-- [ ] Remove if not publishing binaries
+- [ ] Update the `release-assets` task in `Taskfile.yml` - the build commands live there, not in this workflow
+- [ ] Adjust `RELEASE_BINARY`, `RELEASE_DIST`, and `RELEASE_PACKAGE` for your project
+- [ ] Remove this workflow and its `publish-release-assets` caller in `release-please.yml` if not publishing binaries
 
 ### `.github/workflows/apply-settings.yml`
 
@@ -152,33 +158,37 @@ diff .github/settings.yml current.yml
 ### `release-please-config.json`
 
 - [ ] Update `release-type` for your language:
-  - `go` (default) - Go modules
+  - `simple` (default) - Generic (creates `version.txt`)
+  - `go` - Go modules. Maintains the changelog and tag only; Go is versioned by tags. Set
+    `"version-file": "version.txt"` as well, or `version.txt` goes stale with nothing replacing it
   - `node` - Node.js (updates package.json)
   - `python` - Python (updates pyproject.toml)
   - `rust` - Rust (updates Cargo.toml)
-  - `simple` - Generic (creates version.txt)
+  - `helm` - Helm charts (updates Chart.yaml)
 - [ ] Customize changelog sections if needed
+- [ ] Remove `bootstrap-sha`. It is a one-time migration boundary for this template's own history and points at
+      a commit that does not exist in your repository
 
 ### `.release-please-manifest.json`
 
 - [ ] Set initial version (default: `0.0.0`)
+- [ ] Set `version.txt` to the same version when using the default `simple` release type
 
 ### Conventional Commits (Required)
 
 This template uses conventional commits for automatic versioning:
 
-| Prefix | Version Bump | Example |
-|--------|--------------|---------|
-| `feat:` | Minor | `feat: add user authentication` |
-| `fix:` | Patch | `fix: resolve login timeout` |
-| `feat!:` or `fix!:` | Major | `feat!: redesign API endpoints` |
-| `docs:` | Patch | `docs: update README` |
-| `chore:` | Patch | `chore: update dependencies` |
-| `perf:` | Patch | `perf: optimize database queries` |
-| `refactor:` | Patch | `refactor: simplify validation logic` |
-| `test:` | Patch | `test: add unit tests for auth` |
-| `build:` | Patch | `build: update Dockerfile` |
-| `ci:` | Patch | `ci: fix workflow permissions` |
+| Prefix | Version Bump | Release notes | Example |
+|--------|--------------|---------------|---------|
+| `feat:` | Minor | Features | `feat: add user authentication` |
+| `fix:` | Patch | Bug Fixes | `fix: resolve login timeout` |
+| `feat!:` or `fix!:` | Major (minor below 1.0.0) | Breaking Changes | `feat!: redesign API endpoints` |
+| `docs:`, `perf:`, `refactor:`, `revert:` | Patch | Own section | `docs: update README` |
+| `ci:`, `chore:`, `build:`, `style:`, `test:` | None on their own | Not shown | `chore: update dependencies` |
+
+A section marked `hidden: true` in `changelog-sections` contributes nothing to the changelog, and release-please
+skips a release whose changelog would be empty. That is what makes the last row "None" - and why a push mixing
+one `docs:` with several `chore:` commits still cuts a patch. See [docs/RELEASES.md](docs/RELEASES.md).
 
 ### `.typos.toml`
 
@@ -273,6 +283,7 @@ After setup, verify everything works:
 - [ ] Verify dco2 app is installed and running on PRs
 - [ ] Push a commit with `feat: test feature` - should create/update Release PR
 - [ ] Merge Release PR - should create GitHub Release and update CHANGELOG.md
+- [ ] Confirm the release created a `vX.Y.Z` tag and updated `version.txt` (or the configured language version file)
 
 ---
 
@@ -356,7 +367,11 @@ license-check:
 # 1. Copy template files to your repo
 cp -r .github /path/to/your/repo/
 cp CODE_OF_CONDUCT.md SUPPORT.md ROADMAP.md CHANGELOG.md /path/to/your/repo/
-cp .typos.toml /path/to/your/repo/
+cp release-please-config.json .release-please-manifest.json version.txt /path/to/your/repo/
+cp -r docs /path/to/your/repo/
+# Taskfile.yml and lefthook.yml are required: release-assets.yml runs `task release-assets`,
+# and the local checks that mirror CI are defined there.
+cp Taskfile.yml lefthook.yml .typos.toml /path/to/your/repo/
 
 # 2. Replace placeholders (customize these values)
 cd /path/to/your/repo

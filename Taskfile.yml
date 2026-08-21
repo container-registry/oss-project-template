@@ -1,5 +1,10 @@
 version: '3'
 
+vars:
+  RELEASE_BINARY: '{{.RELEASE_BINARY | default "app"}}'
+  RELEASE_DIST: '{{.RELEASE_DIST | default "dist"}}'
+  RELEASE_PACKAGE: '{{.RELEASE_PACKAGE | default "."}}'
+
 tasks:
   default:
     cmds: [task --list]
@@ -52,6 +57,29 @@ tasks:
       - go-licenses check ./... --disallowed_types=forbidden,restricted,reciprocal,permissive,unknown --ignore=$(go list -m)
     status:
       - '! test -f go.mod'
+
+  release-assets:
+    desc: Build the example Go release binaries into dist/
+    cmds:
+      - mkdir -p "{{.RELEASE_DIST}}"
+      - task: _release-asset
+        vars: {GOOS: linux, GOARCH: amd64}
+      - task: _release-asset
+        vars: {GOOS: darwin, GOARCH: amd64}
+      - task: _release-asset
+        vars: {GOOS: darwin, GOARCH: arm64}
+      - task: _release-asset
+        vars: {GOOS: windows, GOARCH: amd64, EXT: .exe}
+
+  _release-asset:
+    internal: true
+    requires:
+      vars: [GOOS, GOARCH]
+    env:
+      GOOS: '{{.GOOS}}'
+      GOARCH: '{{.GOARCH}}'
+      CGO_ENABLED: '0'
+    cmd: go build -trimpath -o "{{.RELEASE_DIST}}/{{.RELEASE_BINARY}}-{{.GOOS}}-{{.GOARCH}}{{.EXT}}" "{{.RELEASE_PACKAGE}}"
 
   setup:
     desc: Install tools and git hooks

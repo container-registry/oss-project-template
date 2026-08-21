@@ -3,7 +3,9 @@ name: Apply Repository Settings
 on:
   push:
     branches: [main]
-    paths: ['.github/settings.yml']
+    paths:
+      - '.github/settings.yml'
+      - '.github/scripts/apply-settings.js'
   schedule:
     - cron: '0 9 * * 1'  # Weekly Monday 9am UTC - drift check
   workflow_dispatch:
@@ -27,6 +29,7 @@ permissions:
 jobs:
   settings:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.repository_owner == github.event.repository.owner.login
     steps:
       - uses: actions/checkout@v6
