@@ -7,6 +7,30 @@
 > template sections below disappear. See [CHECKLIST.md](CHECKLIST.md) for the decisions bootstrap cannot make
 > for you.
 
+Repository configuration and automation for small open-source projects that want the engineering hygiene of a
+large one without a platform team. It is the template behind the
+[container-registry](https://github.com/container-registry) projects, among them
+[harbor-next](https://github.com/container-registry/harbor-next) and the goharbor
+[Trivy scanner adapter](https://github.com/goharbor/harbor-scanner-trivy), so every gate in it is exercised by
+real pull requests rather than hypothetical ones.
+
+## When It Fits
+
+The template is deliberately opinionated. It assumes your project looks like this:
+
+- **Hosted on GitHub, GitHub-native.** Actions, Dependabot, CodeQL, GHCR. The only external service assumed
+  is GitHub itself; there is nothing to sign up for.
+- **One repository, one deliverable.** A single Taskfile, release stream and changelog. Not a monorepo.
+- **A small maintainer team, often one person.** Automation stands in for the reviewer you do not have:
+  merges default to zero required approvals, and bots handle labels, releases and settings drift.
+- **Go first, but not Go only.** The Go pack builds, tests and ships a signed multi-arch container image.
+  `task bootstrap --lang=none` drops it and keeps everything else for any language.
+- **Releases nobody cuts by hand.** Conventional commits, squash merge and release-please decide the version,
+  changelog, tag, GitHub release, images, SBOMs and provenance.
+
+It is a poor fit if you want merge commits, free-form commit messages, manual versioning, a monorepo, or a
+forge other than GitHub. Those are load-bearing assumptions, not defaults you flip.
+
 ## Using This Template
 
 ```bash
@@ -20,20 +44,28 @@ task check              # the same gates CI runs
 not select, records which template commit you started from in `.github/template.yml`, deletes itself and
 CHECKLIST.md, and then runs the consistency checks so a half-applied template fails loudly.
 
-### What You Get
+## Features
 
-- **Working CI on the first push.** Spelling, workflow lint and security audit, YAML lint, dependency review,
-  repository consistency, and for Go a build, race-enabled tests, lint, tidy check, licence check, vulnerability
-  scan and a container image smoke test.
+- **Working CI on the first push.** Spelling, workflow lint, workflow security audit, YAML lint, dependency
+  review, and repository-consistency checks that keep the template's own rules enforced.
+- **A complete Go pack.** Build, race-enabled tests, lint, tidy check, licence check, vulnerability scan and a
+  container image smoke test. It skips itself when there is no `go.mod`.
 - **Releases without ceremony.** Conventional commits drive the version, the changelog, the tag, the GitHub
-  release, signed multi-arch images, SBOMs and build provenance.
+  release, signed multi-arch images, SBOMs and build provenance. See [docs/RELEASES.md](docs/RELEASES.md).
 - **Security defaults that are on.** Secret scanning with push protection, private vulnerability reporting,
-  Dependabot, CodeQL, a branch ruleset, and a `SECURITY.md` with a real disclosure policy.
+  Dependabot, CodeQL, OpenSSF Scorecard, a branch ruleset, and a `SECURITY.md` with a real disclosure policy.
 - **Settings as code.** Labels, merge strategy, security toggles and the ruleset live in
-  `.github/settings.yml`, are applied automatically, and are drift-checked weekly.
-- **Every action pinned to a SHA**, enforced by a gate, and kept current by Dependabot.
+  `.github/settings.yml`, are applied automatically on push, and are drift-checked weekly.
+- **Every action pinned to a full SHA**, enforced by a gate and kept current by Dependabot.
+- **Local equals CI.** Task runs the same commands in both, `versions.env` pins the tool versions, and git
+  hooks catch a failing gate before it reaches a pull request.
+- **Contribution plumbing done.** DCO gate checked in-repo, conventional-commit PR titles, path and size
+  labels, a first-contributor welcome, and issue and pull request templates.
 
-### Decisions Already Made
+Every workflow, config file and secret is mapped in [docs/repo-automation.md](docs/repo-automation.md), which
+also says when each is safe to delete.
+
+## Decisions Already Made
 
 | Decision | Why |
 |----------|-----|
@@ -47,7 +79,7 @@ CHECKLIST.md, and then runs the consistency checks so a half-applied template fa
 
 Disagree with one? Each is a file or a line, and every workflow header says when it is safe to delete.
 
-### After Adoption
+## After Adoption
 
 Nothing pulls template changes automatically. `.github/template.yml` records the commit you started from, so it
 is possible to ask which repositories are behind and which carry a defect already fixed here.

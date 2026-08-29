@@ -28,7 +28,7 @@ Work through it after bootstrap, before the first real pull request.
       ruleset are applied.
 - [ ] Confirm **Settings → Actions → Allow GitHub Actions to create and approve pull requests** is on, or
       release-please cannot open its release pull request.
-- [ ] Fill in the project board link in `ROADMAP.md`, or delete the file.
+- [ ] Link the project board in `ROADMAP.md` if one exists, or delete the file.
 - [ ] Replace the `Install` and `Usage` sections in `README.md`.
 
 ## 3. Optional

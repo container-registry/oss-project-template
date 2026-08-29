@@ -1,32 +1,26 @@
 # Roadmap
 
-## Project Board
+Planned work is tracked in
+[issues](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues) and
+[milestones](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/milestones).
 
-The project roadmap is tracked on our GitHub Project Board:
+<!-- If the project uses a GitHub Projects board, link it here; boards live under the organisation or user,
+     not under the repository. Otherwise this file works as-is, or delete it. -->
 
-**[Project Board](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/projects)**
+## Suggesting Work
 
-The project board provides:
-- Real-time status of planned features
-- Release milestones and timelines
-- Priority and progress tracking
-- Links to related issues and PRs
-
-## How to Contribute
-
-### Suggesting Features
-
-1. Check the [Project Board](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/projects) for existing plans
-2. Search [Issues](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues) for similar requests
-3. Open a [Feature Request](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=feature_request.yml) or [Proposal](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=proposal.yml)
-
-### Discussing Roadmap
-
-- Comment on the issue or proposal you care about
+Search existing issues first, then open a
+[feature request](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=feature_request.yml). For
+anything larger than a small addition, open a
+[proposal](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=proposal.yml) so the approach is
+agreed before the code exists.
 <!-- if:SLACK_URL -->
-- Join our community chat: {{SLACK_URL}}
+
+Community chat: {{SLACK_URL}}
 <!-- endif -->
 
-## Release Cadence
+## Releases
 
-This project follows a regular release schedule. See [GitHub Releases](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/releases) for the latest versions.
+There is no release schedule. A release is cut automatically when a merged change warrants one; see
+[docs/RELEASES.md](docs/RELEASES.md) for how, and
+[GitHub Releases](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/releases) for what has shipped.

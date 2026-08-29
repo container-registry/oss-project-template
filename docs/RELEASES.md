@@ -1,6 +1,8 @@
 # Release Process
 
-Releases are automated with [release-please](https://github.com/googleapis/release-please). Do not create release tags or GitHub Releases manually.
+Releases are automated with [release-please](https://github.com/googleapis/release-please). Never push a
+`v*` tag or create a GitHub Release by hand, and never edit `CHANGELOG.md`; release-please owns all three. The
+repository squash-merges, so the pull request title is the commit release-please parses.
 
 Release state is defined by conventional commits on `main`, `release-please-config.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
 
@@ -51,24 +53,15 @@ npx release-please release-pr --dry-run \
 ## The Version Baseline
 
 release-please finds the previous release by looking for the tag matching the version in
-`.release-please-manifest.json`. A new repository starts at `0.0.0` with no tags, so the first `feat:`
-produces `v0.1.0`.
-
-**If the repository already has releases, the manifest version and the newest tag must agree.** When they do
+`.release-please-manifest.json`. **The manifest version and the newest release tag must agree.** When they do
 not, release-please finds no previous release, walks the whole history, and replays old commits into the next
-changelog. That is the case in this repository: its only release is tagged `app-v1.1.0`, which the `vX.Y.Z`
-scheme does not match.
+changelog.
 
-`release-please-config.json` therefore carries a one-time migration boundary:
-
-```json
-"bootstrap-sha": "9d06252c11397e07c9ea95c260dd2213869d605f"
-```
-
-**Delete that key once the first release under the new scheme has been cut.** It is a migration aid, not
-configuration, and it is meaningless in a repository created from this template. The alternative, if you would
-rather keep the old version line, is to push a tag matching the manifest at the existing release commit
-(`git tag v1.1.0 b9d64b1 && git push origin v1.1.0`) and set the manifest back to `1.1.0`.
+A repository created from this template starts clean: `task bootstrap` resets the manifest, `version.txt` and
+`CHANGELOG.md` to zero, and a templated repository carries no tags, so the first `feat:` produces `v0.1.0`.
+When adopting this setup into a repository that already has releases, set the manifest to the version of the
+newest existing tag instead, and make sure that tag matches the `vX.Y.Z` scheme; push one at the release
+commit if it does not.
 
 ## Adapt It to a Project
 
@@ -128,12 +121,6 @@ filter, and the check waits forever.
 
 Do not work around a blocked release pull request by pushing a tag by hand. The tag and
 `.release-please-manifest.json` then disagree permanently, and every later release inherits the mismatch.
-
-## Rules
-
-- Never push a `v*` tag by hand.
-- Never edit `CHANGELOG.md` by hand; release-please owns it.
-- Squash-merge only. The pull request title is the commit release-please parses.
 
 ## Required Repository Settings
 

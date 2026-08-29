@@ -7,7 +7,7 @@ Maintainers review and merge changes, cut releases, and handle security reports.
 | {{MAINTAINER_NAME}} | [@{{MAINTAINER_GITHUB}}](https://github.com/{{MAINTAINER_GITHUB}}) | all |
 
 `.github/CODEOWNERS` is what GitHub uses to request reviews, and it routes to the
-`@{{ORG_NAME}}/maintainers` **team**. Adding a row to the table below therefore does nothing on its own: a new
+`@{{ORG_NAME}}/maintainers` **team**. Adding a row to the table above therefore does nothing on its own: a new
 maintainer must also be added to that team, or CODEOWNERS changed to name them directly. Otherwise they are
 listed here and never receive a review request.
 
