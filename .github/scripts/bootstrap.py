@@ -239,25 +239,35 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
                 settings.write_text(updated, encoding="utf-8")
 
 
-def strip_release_migration_keys(dry_run: bool) -> None:
-    """Remove release-please keys that only make sense in the template repo.
+def reset_release_state(dry_run: bool) -> None:
+    """Start the new repository's release history at zero.
 
-    `bootstrap-sha` marks where the template's own history starts. In a new
-    repository it points at a commit that does not exist, so release-please
-    would look for it, never find it, and fall back to the full history.
+    The manifest, version.txt and CHANGELOG.md describe the template's own
+    releases. A repository created from a template carries no tags, so leaving
+    the manifest at the template's version makes release-please look for a tag
+    that will never exist. Reset all three so the first `feat:` produces
+    v0.1.0, and strip `bootstrap-sha` if the template still carries one.
     """
     config = ROOT / "release-please-config.json"
-    if not config.exists():
-        return
+    if config.exists():
+        text = config.read_text(encoding="utf-8")
+        stripped = re.sub(r'^[ \t]*"bootstrap-sha":[^\n]*\n', "", text, flags=re.M)
+        if stripped != text:
+            print(f"{'would remove' if dry_run else 'removing'} bootstrap-sha from release-please-config.json")
+            if not dry_run:
+                config.write_text(stripped, encoding="utf-8")
 
-    text = config.read_text(encoding="utf-8")
-    stripped = re.sub(r'^[ \t]*"bootstrap-sha":[^\n]*\n', "", text, flags=re.M)
-    if stripped == text:
-        return
-
-    print(f"{'would remove' if dry_run else 'removing'} bootstrap-sha from release-please-config.json")
-    if not dry_run:
-        config.write_text(stripped, encoding="utf-8")
+    resets = (
+        (ROOT / ".release-please-manifest.json", '{\n  ".": "0.0.0"\n}\n'),
+        (ROOT / "version.txt", "0.0.0\n"),
+        (ROOT / "CHANGELOG.md", "# Changelog\n"),
+    )
+    for path, content in resets:
+        if not path.exists() or path.read_text(encoding="utf-8") == content:
+            continue
+        print(f"{'would reset' if dry_run else 'resetting'} {path.relative_to(ROOT)}")
+        if not dry_run:
+            path.write_text(content, encoding="utf-8")
 
 
 def write_provenance(values: dict[str, str], dry_run: bool) -> None:
@@ -310,7 +320,7 @@ def main() -> int:
         remove_go_pack(args.dry_run)
 
     rewrite_identity_files(values, args.dry_run)
-    strip_release_migration_keys(args.dry_run)
+    reset_release_state(args.dry_run)
     write_provenance(values, args.dry_run)
 
     for rel in TEMPLATE_ONLY:

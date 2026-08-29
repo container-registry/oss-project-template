@@ -1,48 +1,32 @@
 # Support
 
-Welcome! This document outlines how to get help.
-
-<!-- if:DOCS_URL -->
-## Documentation
-
-- **Official Docs**: {{DOCS_URL}}
-<!-- endif -->
-
 ## Questions
 
-Ask in an issue. There is one inbox on purpose, so nothing sits unanswered in a second one:
-https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=question.yml
+Ask in an issue, using the
+[question form](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=question.yml). There is one
+inbox on purpose, so nothing sits unanswered in a second one.
+<!-- if:DOCS_URL -->
 
+Documentation: {{DOCS_URL}}
+<!-- endif -->
 <!-- if:SLACK_URL -->
-### Chat
 
-{{SLACK_URL}}
+Community chat: {{SLACK_URL}}
 <!-- endif -->
 
-## Reporting Issues
+## Bugs and Feature Requests
 
-### Bug Reports
+Search [existing issues](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues) first, then file a
+[bug report](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=bug_report.yml) or a
+[feature request](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=feature_request.yml).
+The forms ask for what a useful report needs.
 
-Found a bug? Please file an issue:
-https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=bug_report.yml
+## Security Issues
 
-Before filing, please:
-1. Search existing issues to avoid duplicates
-2. Gather relevant logs and version information
-3. Provide steps to reproduce
-
-### Feature Requests
-
-Have an idea for a new feature?
-https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/issues/new?template=feature_request.yml
-
-### Security Issues
-
-**Do NOT file public issues for security concerns.**
-
-Please report security issues privately:
-https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/security/advisories/new
+**Never in a public issue.** Report privately via
+[a security advisory](https://github.com/{{ORG_NAME}}/{{REPO_NAME}}/security/advisories/new); see
+[SECURITY.md](SECURITY.md).
 
 ## Contributing
 
-Interested in contributing? See our [CONTRIBUTING.md](CONTRIBUTING.md) guide.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
