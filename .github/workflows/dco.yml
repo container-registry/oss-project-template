@@ -39,11 +39,26 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          TOTAL_COMMITS: ${{ github.event.pull_request.commits }}
         run: |
           set -euo pipefail
-          missing=0
+
+          # The endpoint lists at most 250 commits. Fail rather than report a
+          # partial read as a pass.
+          if [ "${TOTAL_COMMITS}" -gt 250 ]; then
+            echo "::error::This pull request has ${TOTAL_COMMITS} commits and the API lists at most 250, so the sign-off check cannot cover it. Split the pull request."
+            exit 1
+          fi
+
+          # Assigned, not read straight into the loop: a process substitution
+          # hides the exit status from set -e, so a failed API call would empty
+          # the loop and pass the gate.
           # Messages are multi-line, so the filter base64-encodes each one to
           # keep a commit per line.
+          commits=$(gh api --paginate "repos/${REPO}/pulls/${PR}/commits" \
+            --jq '.[] | select((.parents | length) < 2) | select(.author.type != "Bot") | "\(.sha):\(.commit.message | @base64)"')
+
+          missing=0
           while IFS= read -r entry; do
             [ -n "$entry" ] || continue
             sha=${entry%%:*}
@@ -54,8 +69,8 @@ jobs:
               echo "::error::Missing DCO sign-off: $sha $(printf '%s\n' "$message" | head -1)"
               missing=1
             fi
-          done < <(gh api --paginate "repos/${REPO}/pulls/${PR}/commits" \
-            --jq '.[] | select((.parents | length) < 2) | select(.author.type != "Bot") | "\(.sha):\(.commit.message | @base64)"')
+          done <<< "$commits"
+
           if [ "$missing" -eq 1 ]; then
             echo ""
             echo "Every commit needs a Signed-off-by trailer certifying the DCO"
