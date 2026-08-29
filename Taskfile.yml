@@ -101,8 +101,12 @@ tasks:
   dco-check:
     desc: Check commits carry a DCO sign-off
     cmds:
+      # --no-merges matches the DCO workflow and the dco2 app, both of which
+      # exempt merge commits. The bot exemption they also share has no local
+      # equivalent: it needs the API to tell a real bot account from a git
+      # user.name ending in [bot].
       - |
-        for commit in $(git log --format=%H origin/main..HEAD 2>/dev/null || git log --format=%H -5); do
+        for commit in $(git log --no-merges --format=%H origin/main..HEAD 2>/dev/null || git log --no-merges --format=%H -5); do
           if ! git log -1 --format=%B "$commit" | grep -q "^Signed-off-by:"; then
             echo "ERROR: Commit $commit missing DCO sign-off"
             echo "Fix with: git commit --amend -s"
