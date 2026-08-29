@@ -10,7 +10,12 @@ name: DCO
 #
 # The dco2 GitHub App gives nicer remediation UX, but it is an app somebody has
 # to remember to install. This runs in the repository, so the gate exists from
-# the first pull request. Same check as `task dco-check`.
+# the first pull request. It applies the same two exemptions dco2 does, so the
+# two never disagree on a pull request: merge commits and bot commits.
+#
+# Reads the commits over the API rather than checking the branch out. That
+# resolves each author to a GitHub account, so `type: Bot` cannot be forged by
+# setting a local git user.name, and no fork code reaches the runner.
 
 on:
   pull_request:
@@ -27,30 +32,45 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          # The full range between the base and the head must be readable.
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Check every commit is signed off
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          TOTAL_COMMITS: ${{ github.event.pull_request.commits }}
         run: |
           set -euo pipefail
+
+          # The endpoint lists at most 250 commits. Fail rather than report a
+          # partial read as a pass.
+          if [ "${TOTAL_COMMITS}" -gt 250 ]; then
+            echo "::error::This pull request has ${TOTAL_COMMITS} commits and the API lists at most 250, so the sign-off check cannot cover it. Split the pull request."
+            exit 1
+          fi
+
+          # Assigned, not read straight into the loop: a process substitution
+          # hides the exit status from set -e, so a failed API call would empty
+          # the loop and pass the gate.
+          # Messages are multi-line, so the filter base64-encodes each one to
+          # keep a commit per line.
+          commits=$(gh api --paginate "repos/${REPO}/pulls/${PR}/commits" \
+            --jq '.[] | select((.parents | length) < 2) | select(.author.type != "Bot") | "\(.sha):\(.commit.message | @base64)"')
+
           missing=0
-          for commit in $(git rev-list "${BASE_SHA}".."${HEAD_SHA}"); do
+          while IFS= read -r entry; do
+            [ -n "$entry" ] || continue
+            sha=${entry%%:*}
+            message=$(printf '%s' "${entry#*:}" | base64 -d)
             # Requires a name and an address, not just the trailer key: a
             # bare "Signed-off-by:" line satisfied the previous check.
-            if ! git log -1 --format=%B "$commit" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
-              subject=$(git log -1 --format=%s "$commit")
-              echo "::error::Missing DCO sign-off: $commit $subject"
+            if ! printf '%s\n' "$message" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
+              echo "::error::Missing DCO sign-off: $sha $(printf '%s\n' "$message" | head -1)"
               missing=1
             fi
-          done
+          done <<< "$commits"
+
           if [ "$missing" -eq 1 ]; then
             echo ""
             echo "Every commit needs a Signed-off-by trailer certifying the DCO"
