@@ -25,7 +25,18 @@ use the same binaries.
 The git hooks installed by `task setup` check spelling, the commit message format, and the sign-off before a
 commit is created. They fail fast so CI does not have to.
 
-## Commits
+## Vulnerabilities
+
+CI scans the module dependency graph with [govulncheck](https://pkg.go.dev/golang.org/x/vuln/cmd/govulncheck).
+Findings do not fail the job: the full report goes to the job summary, and a sticky pull request comment lists
+only the findings that have a published fix, updated on every run and removed once nothing fixable is left.
+Only a scan that could not produce a usable report fails. Reproduce what CI reports with:
+
+```bash
+task vuln-report                     # writes vulnerability-check/report.md and comment.md
+task vuln-check                      # plain govulncheck, non-zero on any finding
+```
+
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) and every commit needs a
 Developer Certificate of Origin sign-off:

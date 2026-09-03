@@ -169,6 +169,7 @@ GO_PACK = [
     "go.mod", "go.sum", "main.go", "main_test.go", "Dockerfile", ".golangci.yaml",
     ".github/workflows/ci.yml", ".github/workflows/release-assets.yml",
     ".github/workflows/publish-image.yml", ".github/actions/setup",
+    "tools/govulncheck-report", ".github/scripts/vulnerability-comment.sh",
 ]
 
 
@@ -186,18 +187,32 @@ def remove_go_pack(dry_run: bool) -> None:
                 path.rmdir()
             else:
                 path.unlink()
+            # A pack directory such as tools/ is not worth keeping empty.
+            parent = path.parent
+            while parent != ROOT and not any(parent.iterdir()):
+                parent.rmdir()
+                parent = parent.parent
 
     # The automation reference documents files that no longer exist.
     doc = ROOT / "docs/repo-automation.md"
     if doc.exists() and not dry_run:
         gone = ("ci.yml", "release-assets.yml", "publish-image.yml", ".github/actions/setup",
-                ".golangci.yaml", "Dockerfile", "go.mod")
+                ".golangci.yaml", "Dockerfile", "go.mod", "vulnerability-comment.sh")
         kept = [
             line for line in doc.read_text(encoding="utf-8").splitlines(keepends=True)
             if not (line.lstrip().startswith("|") and any(name in line for name in gone))
         ]
         doc.write_text("".join(kept), encoding="utf-8")
         print("pruned docs/repo-automation.md")
+
+    # CONTRIBUTING.md documents the govulncheck report, which the Go pack owns.
+    contributing = ROOT / "CONTRIBUTING.md"
+    if contributing.exists() and not dry_run:
+        text = contributing.read_text(encoding="utf-8")
+        pruned = re.sub(r"## Vulnerabilities\n(?:.*\n)*?(?=## )", "", text, count=1)
+        if pruned != text:
+            contributing.write_text(pruned, encoding="utf-8")
+            print("pruned the vulnerability section from CONTRIBUTING.md")
 
     release_please = ROOT / ".github/workflows/release-please.yml"
     if release_please.exists() and not dry_run:

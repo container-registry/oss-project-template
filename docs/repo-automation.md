@@ -8,7 +8,7 @@ short version of this in a header comment; this is the map.
 | Workflow | What it does | Needs |
 |----------|--------------|-------|
 | `hygiene.yml` | Spelling, workflow lint, YAML lint, repository consistency, workflow security audit, action pin check, dependency review. Ends in a `required-checks` aggregate job. | nothing |
-| `ci.yml` | Build, test, lint, tidy, licence check, vulnerability scan, and a container image smoke test. Skips itself without `go.mod`. | nothing |
+| `ci.yml` | Build, test, lint, tidy, licence check, vulnerability report, and a container image smoke test. Skips itself without `go.mod`. Vulnerabilities are reported in the job summary and as a sticky pull request comment listing the fixable ones; only a scan that produced no usable report fails. | nothing |
 | `codeql.yml` | Static analysis of the workflows and the Go code. | public repo, or Advanced Security |
 | `dco.yml` | Fails a pull request whose commits lack a sign-off. | nothing |
 | `scorecard.yml` | OpenSSF Scorecard. Skips on private repositories. | `SCORECARD_TOKEN` to also score branch protection |
@@ -40,6 +40,7 @@ short version of this in a header comment; this is the map.
 |------|---------|
 | `.github/scripts/apply-settings.js` | Applies, verifies or drift-checks `settings.yml`. Reads JSON the workflow converts, so it needs no YAML parser |
 | `.github/scripts/repo-lint.py` | Repository consistency checks, also run by `task lint:repo` |
+| `.github/scripts/vulnerability-comment.sh` | Creates, updates or removes the sticky govulncheck comment on a pull request. Rendering lives in `tools/govulncheck-report` |
 
 ## Secrets
 

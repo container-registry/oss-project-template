@@ -26,7 +26,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 PLACEHOLDER_DOCS: set[str] = set()
 
 PLACEHOLDER_RE = re.compile(r"\{\{[A-Z][A-Z0-9_]*\}\}")
-SKIP_DIRS = {".git", "node_modules", "dist", "bin", ".task", "vendor"}
+SKIP_DIRS = {".git", "node_modules", "dist", "bin", ".task", "vendor",
+             "vulnerability-check"}
 KNOWN_SUFFIXES = {".md", ".yml", ".yaml", ".json", ".toml", ".sh", ".go", ".env",
                   ".txt", ".js", ".py", ".mjs", ".cfg", ".ini"}
 
@@ -68,7 +69,9 @@ def check_yaml_loads(errors: list[str]) -> None:
 
 def check_json_loads(errors: list[str]) -> None:
     for path in _files(".json"):
-        if "lock" in path.name:
+        # Test fixtures are allowed to be malformed on purpose, and a
+        # govulncheck fixture is a stream of documents, not one document.
+        if "lock" in path.name or "testdata" in path.parts:
             continue
         try:
             json.loads(path.read_text(encoding="utf-8"))
