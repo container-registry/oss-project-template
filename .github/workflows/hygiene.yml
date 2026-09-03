@@ -275,14 +275,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          # $1 = "go" or "none" (the --lang value), $2 = "filled" or "blank".
+          # $1 = --lang (go|none), $2 = --chart (helm|none), $3 = "filled" or "blank".
           #
           # Both matter: blank exercises removing the optional blocks, filled
           # exercises keeping them. Rehearsing only the blank path is how
           # leftover marker comments shipped once already.
           rehearse() {
             lang="$1"
-            optional="$2"
+            chart="$2"
+            optional="$3"
             if [ "$optional" = "filled" ]; then
               docs="https://docs.example.test"
               slack="https://slack.example.test"
@@ -307,9 +308,9 @@ jobs:
                 --security-email security@acme.test \
                 --conduct-email conduct@acme.test \
                 --homepage-url "$home" --docs-url "$docs" --slack-url "$slack" \
-                --lang "$lang"
+                --lang "$lang" --chart "$chart"
 
-              echo "::group::lang=$lang optional=$optional assertions"
+              echo "::group::lang=$lang chart=$chart optional=$optional assertions"
 
               # repo-lint is what asserts the result: no placeholder or
               # marker survived, no reference dangles, no workflow_call points
@@ -321,13 +322,15 @@ jobs:
               echo "::endgroup::"
             )
             rm -rf "$work"
-            echo "lang=$lang optional=$optional rehearsal passed"
+            echo "lang=$lang chart=$chart optional=$optional rehearsal passed"
           }
 
-          rehearse go blank
-          rehearse go filled
-          rehearse none blank
-          rehearse none filled
+          # Four of the eight combinations: every pack on and off, every
+          # optional value present and absent, without doubling the runtime.
+          rehearse go helm filled
+          rehearse go none blank
+          rehearse none helm blank
+          rehearse none none filled
 
   # The single context that is safe to mark required in a branch ruleset.
   #

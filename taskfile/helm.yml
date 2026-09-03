@@ -1,0 +1,223 @@
+# Helm chart quality gate.
+#
+# Every task here runs identically in CI (.github/workflows/chart-ci.yml), which
+# installs the same tool versions from versions.env. Tool tasks prefer a local
+# binary and fall back to Docker so the gate is runnable without installing
+# anything; `task helm:ci` runs the whole thing.
+---
+version: '3'
+
+vars:
+  CHART_DIR: deploy/chart
+  CHART_NAME:
+    sh: awk -F'[:[:space:]]+' '$1 == "name" { print $2; exit }' deploy/chart/Chart.yaml
+  # Repo-owned yamllint config for chart-testing: release-please's Chart.yaml
+  # stamping style fails ct's shipped strict conf.
+  CT_LINT_CONF: '{{.CT_LINT_CONF | default "taskfile/ct-lintconf.yaml"}}'
+  TRIVY_SARIF: '{{.TRIVY_SARIF | default "trivy-chart.sarif"}}'
+
+tasks:
+  # --- Individual checks ---------------------------------------------------
+
+  lint:helm:
+    desc: helm lint --strict
+    cmd: helm lint --strict {{.CHART_DIR}}
+
+  template:
+    desc: Render the default values and fail on any template error
+    cmd: helm template test {{.CHART_DIR}} > /dev/null
+
+  lint:ct:
+    desc: chart-testing lint (Chart.yaml schema, yamllint, every ci/*-values.yaml renders)
+    cmd: |
+      if command -v ct >/dev/null 2>&1; then
+        ct lint --charts {{.CHART_DIR}} --lint-conf {{.CT_LINT_CONF}} \
+          --validate-maintainers=false --target-branch main
+      else
+        docker run --rm -v "$(pwd)":/workdir -w /workdir \
+          quay.io/helmpack/chart-testing:v{{.CT_VERSION}} \
+          ct lint --charts {{.CHART_DIR}} --lint-conf {{.CT_LINT_CONF}} \
+          --validate-maintainers=false --target-branch main
+      fi
+
+  lint:ah:
+    desc: Validate the Artifact Hub metadata
+    cmd: |
+      if command -v ah >/dev/null 2>&1; then
+        ah lint --kind helm --path {{.CHART_DIR}}
+      else
+        docker run --rm -v "$(pwd)/{{.CHART_DIR}}":/chart \
+          artifacthub/ah:v{{.AH_VERSION}} ah lint --kind helm --path /chart
+      fi
+
+  lint:kube:
+    desc: kube-linter over every ci/ values scenario
+    vars:
+      CI_VALUES:
+        sh: find {{.CHART_DIR}}/ci -name '*-values.yaml' | sort
+    cmds:
+      - for: {var: CI_VALUES}
+        cmd: |
+          echo "kube-linter: {{.ITEM}}"
+          if command -v kube-linter >/dev/null 2>&1; then
+            helm template test {{.CHART_DIR}} -f {{.ITEM}} | kube-linter lint --format=plain -
+          else
+            # stdin rather than a bind mount: a bind mount resolves on the
+            # Docker host, which is not the workspace when the daemon is remote.
+            helm template test {{.CHART_DIR}} -f {{.ITEM}} \
+              | docker run --rm -i stackrox/kube-linter:v{{.KUBE_LINTER_VERSION}} lint --format=plain -
+          fi
+
+  lint:schema:
+    desc: Compile values.schema.json strictly
+    # A strict compile catches invalid or mistyped JSON Schema keywords, which
+    # the spec otherwise ignores in silence ("min" instead of "minimum"
+    # validates nothing at all).
+    cmd: |
+      if command -v npx >/dev/null 2>&1; then
+        npx -y ajv-cli@{{.AJV_CLI_VERSION}} compile -s {{.CHART_DIR}}/values.schema.json \
+          --spec=draft2020 --strict=true --allowUnionTypes=true
+      else
+        docker run --rm -v "$(pwd)/{{.CHART_DIR}}":/chart -w /chart \
+          node:{{.NODE_VERSION}}-alpine \
+          npx -y ajv-cli@{{.AJV_CLI_VERSION}} compile -s values.schema.json \
+          --spec=draft2020 --strict=true --allowUnionTypes=true
+      fi
+
+  unittest:
+    desc: helm unittest
+    cmd: helm unittest {{.CHART_DIR}}
+
+  gitops-determinism:
+    desc: Render the GitOps scenario twice and require byte-identical output
+    cmds:
+      # This is what Argo CD does on every sync. Any diff means the chart
+      # generates something at render time, which shows up as perpetual drift.
+      - helm template app {{.CHART_DIR}} --namespace app -f {{.CHART_DIR}}/ci/gitops-values.yaml > "${TMPDIR:-/tmp}/gitops-1.yaml"
+      - helm template app {{.CHART_DIR}} --namespace app -f {{.CHART_DIR}}/ci/gitops-values.yaml > "${TMPDIR:-/tmp}/gitops-2.yaml"
+      - defer: rm -f "${TMPDIR:-/tmp}/gitops-1.yaml" "${TMPDIR:-/tmp}/gitops-2.yaml"
+      - >-
+        diff -u "${TMPDIR:-/tmp}/gitops-1.yaml" "${TMPDIR:-/tmp}/gitops-2.yaml"
+        || (echo "Chart rendering is not deterministic; GitOps engines would see perpetual drift." && exit 1)
+
+  trivy:
+    desc: Scan the rendered manifests for misconfigurations
+    cmds:
+      - helm template test {{.CHART_DIR}} > {{.CHART_DIR}}/.trivy-manifests.yaml
+      - defer: rm -f {{.CHART_DIR}}/.trivy-manifests.yaml
+      - |
+        if command -v trivy >/dev/null 2>&1; then
+          trivy config {{.CHART_DIR}}/.trivy-manifests.yaml \
+            --ignorefile {{.CHART_DIR}}/.trivyignore --severity HIGH,CRITICAL --exit-code 1
+        else
+          docker run --rm -v "$(pwd)/{{.CHART_DIR}}":/chart \
+            aquasec/trivy:{{.TRIVY_VERSION}} \
+            config /chart/.trivy-manifests.yaml \
+            --ignorefile /chart/.trivyignore --severity HIGH,CRITICAL --exit-code 1
+        fi
+
+  trivy:report:
+    desc: Trivy misconfiguration scan with a SARIF report (TRIVY_SARIF=path)
+    cmds:
+      - helm template test {{.CHART_DIR}} > {{.CHART_DIR}}/.trivy-manifests.yaml
+      - defer: rm -f {{.CHART_DIR}}/.trivy-manifests.yaml
+      - |
+        if command -v trivy >/dev/null 2>&1; then
+          trivy config {{.CHART_DIR}}/.trivy-manifests.yaml \
+            --ignorefile {{.CHART_DIR}}/.trivyignore \
+            --severity HIGH,CRITICAL --format sarif --output {{.TRIVY_SARIF}}
+        else
+          docker run --rm -v "$(pwd)/{{.CHART_DIR}}":/chart -v "$(pwd)":/out \
+            aquasec/trivy:{{.TRIVY_VERSION}} \
+            config /chart/.trivy-manifests.yaml \
+            --ignorefile /chart/.trivyignore \
+            --severity HIGH,CRITICAL --format sarif --output /out/{{.TRIVY_SARIF}}
+        fi
+
+  docs:
+    desc: Regenerate the chart README from values.yaml and README.md.gotmpl
+    sources:
+      - '{{.CHART_DIR}}/Chart.yaml'
+      - '{{.CHART_DIR}}/values.yaml'
+      - '{{.CHART_DIR}}/README.md.gotmpl'
+    generates:
+      - '{{.CHART_DIR}}/README.md'
+    cmd: |
+      if command -v helm-docs >/dev/null 2>&1; then
+        helm-docs --chart-search-root={{.CHART_DIR}} --chart-to-generate={{.CHART_DIR}}
+      else
+        docker run --rm -v "$(pwd)":/helm-docs -u "$(id -u):$(id -g)" \
+          jnorwood/helm-docs:v{{.HELM_DOCS_VERSION}} \
+          --chart-search-root={{.CHART_DIR}} --chart-to-generate={{.CHART_DIR}}
+      fi
+
+  docs:check:
+    desc: Fail if the chart README is out of date with values.yaml
+    cmds:
+      - |
+        if command -v helm-docs >/dev/null 2>&1; then
+          helm-docs --chart-search-root={{.CHART_DIR}} --chart-to-generate={{.CHART_DIR}} --dry-run
+        else
+          docker run --rm -v "$(pwd)":/helm-docs -u "$(id -u):$(id -g)" \
+            jnorwood/helm-docs:v{{.HELM_DOCS_VERSION}} \
+            --chart-search-root={{.CHART_DIR}} --chart-to-generate={{.CHART_DIR}} --dry-run
+        fi > "${TMPDIR:-/tmp}/helm-docs-expected.md"
+      - defer: rm -f "${TMPDIR:-/tmp}/helm-docs-expected.md"
+      - >-
+        diff -u {{.CHART_DIR}}/README.md "${TMPDIR:-/tmp}/helm-docs-expected.md"
+        || (echo "Chart README.md is out of date. Run{{":"}} task helm:docs" && exit 1)
+
+  # --- Release -------------------------------------------------------------
+
+  package:
+    desc: Package the chart into dist/ (the release pipeline overrides --version)
+    cmds:
+      - mkdir -p dist
+      - helm package {{.CHART_DIR}} -d dist
+
+  release:dry-run:
+    desc: Everything the release job does before it talks to the registry
+    cmd: |
+      set -eu
+      # Runs on a copy: the image annotation is appended to Chart.yaml, and the
+      # worktree must not be left modified.
+      work="${TMPDIR:-/tmp}/chart-release"
+      rm -rf "$work" && mkdir -p "$work"
+      cp -R {{.CHART_DIR}} "$work/chart"
+      .github/scripts/chart-annotate-images.sh "$work/chart"
+      # Never skip silently: this step exists to catch what the release job
+      # would reject, so a missing validator has to fail, not pass quietly.
+      if command -v ah >/dev/null 2>&1; then
+        ah lint --kind helm --path "$work/chart"
+      elif command -v docker >/dev/null 2>&1; then
+        docker run --rm -v "$work/chart":/chart \
+          artifacthub/ah:v{{.AH_VERSION}} ah lint --kind helm --path /chart
+      else
+        echo "Neither ah nor docker is available; the release job would run ah lint here." >&2
+        exit 1
+      fi
+      helm package "$work/chart" --version 0.0.0-ci --destination "$work/dist"
+      ls -l "$work/dist"
+      rm -rf "$work"
+
+  # --- Aggregates ----------------------------------------------------------
+
+  lint:
+    desc: All chart linters
+    cmds:
+      - task: lint:helm
+      - task: lint:ct
+      - task: lint:kube
+      - task: lint:ah
+      - task: lint:schema
+
+  ci:
+    desc: Full chart quality gate (what chart-ci.yml runs)
+    cmds:
+      - task: lint
+      - task: template
+      - task: unittest
+      - task: gitops-determinism
+      - task: docs:check
+      - task: trivy
+      - task: release:dry-run

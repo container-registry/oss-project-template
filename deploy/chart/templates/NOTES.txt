@@ -1,0 +1,9 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} is installed as release {{ .Release.Name }}.
+
+In-cluster endpoint:
+
+  http://{{ include "app.fullname" . }}.{{ .Release.Namespace }}.svc:{{ .Values.service.port }}
+
+Forward it to your machine:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "app.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}

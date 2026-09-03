@@ -1,0 +1,13 @@
+---
+# Artifact Hub repository metadata
+# (https://artifacthub.io/docs/topics/repositories/ - Helm OCI section).
+#
+# Not part of the chart package (see .helmignore). The release pipeline pushes
+# it as a separate OCI artifact next to the chart, under the `artifacthub.io`
+# tag. After adding the repository on artifacthub.io (kind: Helm, URL: the
+# oci:// path the release notes print), set repositoryID to the ID Artifact
+# Hub assigns; that is what enables the verified publisher badge.
+repositoryID: REPLACE-WITH-ARTIFACT-HUB-ID
+owners:
+  - name: Container Registry Maintainers
+    email: oss@container-registry.com

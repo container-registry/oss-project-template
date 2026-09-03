@@ -1,7 +1,7 @@
 ---
 name: Release Please
 
-# What: Opens and merges release pull requests, then triggers the publish workflows.
+# What: Opens release pull requests for the app and for the chart, then triggers the publish workflows.
 # Fires on: push to main, or manual dispatch.
 # Needs: nothing. Repository settings must allow Actions to create pull requests.
 # Safe to delete if: releases are cut by hand. Removes versioning automation entirely.
@@ -58,6 +58,52 @@ jobs:
     uses: ./.github/workflows/publish-image.yml
     with:
       tag_name: ${{ needs.release-please.outputs.tag_name }}
+
+  # The chart has its own release line scoped to deploy/chart by its own
+  # config and manifest, so a chart fix does not force an app release and an
+  # app release does not republish an unchanged chart. It is a SEPARATE
+  # release-please instance rather than a second package in the app manifest:
+  # a second package switches every output to the "<path>--<name>" form and
+  # breaks the jobs above that read the unprefixed ones. `task bootstrap
+  # --chart=none` removes this job and publish-helm-chart.
+  release-please-chart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    outputs:
+      release_created: ${{ steps.release.outputs['deploy/chart--release_created'] }}
+      tag_name: ${{ steps.release.outputs['deploy/chart--tag_name'] }}
+      version: ${{ steps.release.outputs['deploy/chart--version'] }}
+    steps:
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7  # v5.0.0
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .release-please/config-chart.json
+          manifest-file: .release-please/manifest-chart.json
+
+  # Driven by the chart's own release line. The chart references the app image
+  # by appVersion, which an earlier app release has already published, so this
+  # does not wait on publish-image.
+  publish-helm-chart:
+    needs: [release-please-chart]
+    if: ${{ needs.release-please-chart.outputs.release_created == 'true' }}
+    permissions:
+      # A reusable workflow is capped by the caller's grant; the publish job
+      # needs contents: write for `gh release edit`.
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/publish-chart.yml
+    with:
+      tag_name: ${{ needs.release-please-chart.outputs.tag_name }}
+    # Empty by default; publish-chart.yml then pushes anonymously to ttl.sh.
+    # See its header for GHCR and other registries.
+    secrets:
+      CHART_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
+      CHART_REGISTRY_PASSWORD: ${{ secrets.CHART_REGISTRY_PASSWORD }}
 
   # Appends the verification commands to the release body. Idempotent: it
   # replaces the marked section rather than appending a second copy.

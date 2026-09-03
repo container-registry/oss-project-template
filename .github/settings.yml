@@ -72,6 +72,9 @@ labels:
   component/config:
     color: c5def5
     description: Configuration related
+  component/chart:
+    color: 0e8a16
+    description: The Helm chart under deploy/chart
   dependencies:
     color: 0366d6
     description: Dependencies update

@@ -1,0 +1,21 @@
+---
+# Rendered twice by `task helm:gitops-determinism`; the outputs must be
+# byte-identical or a GitOps engine reports perpetual drift. Also a kube-linter
+# scenario: more than one replica needs anti-affinity to pass its checks.
+replicaCount: 2
+image:
+  tag: v1.2.3
+podAnnotations:
+  example.com/owner: platform
+extraEnv:
+  - name: LOG_LEVEL
+    value: info
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: oss-project-template

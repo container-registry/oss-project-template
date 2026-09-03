@@ -18,6 +18,7 @@ Work through it after bootstrap, before the first real pull request.
 | Which licences dependencies may use | `Taskfile.yml` → `license-check` | forbidden, restricted and unknown rejected |
 | Dependabot or Renovate | `.github/dependabot.yml`, `optional/renovate.json` | Dependabot. Add Renovate limited to `versions.env` if hand-bumping tool pins gets old; never both on the same ecosystem |
 | Whether to publish a Scorecard score | `.github/workflows/scorecard.yml` → `publish_results` | false |
+| Where the Helm chart is published | `CHART_REPOSITORY` repository variable, `CHART_REGISTRY_USERNAME` / `CHART_REGISTRY_PASSWORD` secrets | `ttl.sh/<org>/<repo>/charts`, anonymous and gone within 24 hours. Fine for proving the flow, not for releases |
 
 ## 2. Repository setup
 
@@ -30,6 +31,9 @@ Work through it after bootstrap, before the first real pull request.
       release-please cannot open its release pull request.
 - [ ] Link the project board in `ROADMAP.md` if one exists, or delete the file.
 - [ ] Replace the `Install` and `Usage` sections in `README.md`.
+- [ ] If you kept the chart pack: set `CHART_REPOSITORY` and the registry secrets, then put the Artifact Hub
+      repository ID into `deploy/chart/artifacthub-repo.yml` once the repository is listed there. Until then
+      chart releases go to ttl.sh.
 
 ## 3. Optional
 
@@ -55,6 +59,10 @@ Work through it after bootstrap, before the first real pull request.
         --certificate-oidc-issuer https://token.actions.githubusercontent.com
       ```
 - [ ] `gh workflow run apply-settings.yml -f mode=check` reports no drift.
+- [ ] If you kept the chart pack: open a pull request titled `feat(chart): smoke test` that touches only
+      `deploy/chart/`. Confirm `Chart CI` runs and `Chart Scope Paths` passes, merge it, merge the
+      `chore: release chart 0.1.0` pull request it opens, and confirm the chart release carries the install
+      section and `cosign verify` succeeds against the chart digest.
 
 ## 5. Before making any check required
 

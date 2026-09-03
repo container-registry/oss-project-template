@@ -1,0 +1,32 @@
+---
+apiVersion: v2
+# Rewritten by `task bootstrap` to the adopted repository name. Nothing else in
+# the chart may hardcode it; templates use .Chart.Name.
+name: oss-project-template
+description: A Helm chart for the service this repository ships.
+type: application
+version: 0.0.0
+# appVersion tracks the application release; the app release-please line
+# rewrites this line, the chart release-please line rewrites `version` above.
+appVersion: "v1.0.0" # x-release-please-version
+kubeVersion: ">=1.28.0-0"
+
+keywords:
+  - kubernetes
+  - service
+
+# Artifact Hub only counts a maintainer that carries an email address.
+maintainers:
+  - name: Container Registry Maintainers
+    email: oss@container-registry.com
+
+# Artifact Hub metadata (https://artifacthub.io/docs/topics/annotations/helm/).
+# Keep this the LAST top-level key: the release pipeline appends the
+# per-release artifacthub.io/images annotation to this block before packaging,
+# because the image tag is only known at release time.
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "false"
+  # No artifacthub.io/signKey: Artifact Hub parses it as a PGP key id and URL,
+  # and this chart is signed keyless with Sigstore, which has no static key.
+  # Verification is a cosign command, documented in the README.

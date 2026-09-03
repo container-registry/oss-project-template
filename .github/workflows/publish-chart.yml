@@ -1,0 +1,294 @@
+---
+name: Publish Chart
+
+run-name: Publish Helm chart ${{ inputs.tag_name }}
+
+# What: Packages, pushes, signs and documents the Helm chart for a chart-vX.Y.Z release.
+# Fires on: called by release-please.yml after a chart release is created, or manual dispatch.
+# Needs: nothing for the default destination. See "Destination" below for a real registry.
+# Safe to delete if: the project ships no chart. `task bootstrap --chart=none` removes the whole pack.
+#
+# Destination. The chart goes to `vars.CHART_REPOSITORY`, an OCI repository
+# path without the chart name, and defaults to `ttl.sh/<owner>/<repo>/charts`.
+# ttl.sh is anonymous and ephemeral (it keeps an artifact for at most 24
+# hours), so the default proves the whole path end to end in a fresh
+# repository without a single secret, and is not where releases should live.
+# Point CHART_REPOSITORY at a real registry and supply credentials through the
+# CHART_REGISTRY_USERNAME and CHART_REGISTRY_PASSWORD secrets; the login step
+# runs only when a password is set. For GHCR, map them in release-please.yml:
+#
+#   secrets:
+#     CHART_REGISTRY_USERNAME: ${{ github.actor }}
+#     CHART_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+#
+# and grant the caller `packages: write`. A registry that federates GitHub's
+# OIDC identity (Harbor does, see
+# https://github.com/container-registry/harbor-workload-identity-federation)
+# needs no secret at all: mint the token with id-token: write and log in with
+# it as the password.
+#
+# The tag is the only input that decides what ships, so it is resolved to a
+# commit and validated against the GitHub Release before anything is checked
+# out, the same way release-assets.yml and publish-image.yml do.
+
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: Existing chart release tag, chart-vX.Y.Z
+        required: true
+        type: string
+      chart_repository:
+        description: OCI repository path without the chart name. Empty means vars.CHART_REPOSITORY or the ttl.sh default.
+        required: false
+        default: ''
+        type: string
+    secrets:
+      CHART_REGISTRY_USERNAME:
+        required: false
+      CHART_REGISTRY_PASSWORD:
+        required: false
+    outputs:
+      digest:
+        description: Digest of the pushed chart
+        value: ${{ jobs.publish.outputs.digest }}
+      chart_ref:
+        description: OCI reference of the pushed chart, without a tag
+        value: ${{ jobs.publish.outputs.chart_ref }}
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Existing chart release tag, chart-vX.Y.Z
+        required: true
+        type: string
+      chart_repository:
+        description: OCI repository path without the chart name. Empty means vars.CHART_REPOSITORY or the ttl.sh default.
+        required: false
+        default: ''
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: publish-chart-${{ inputs.tag_name }}
+  cancel-in-progress: false
+
+env:
+  # `secrets` cannot be used in a step-level `if`; an env value can.
+  HAS_REGISTRY_CREDENTIALS: ${{ secrets.CHART_REGISTRY_PASSWORD != '' }}
+
+jobs:
+  publish:
+    name: Publish Helm chart
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Appends the install section to the chart release notes.
+      contents: write
+      # Keyless signing: a short-lived OIDC identity instead of a signing key.
+      id-token: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      chart_ref: ${{ steps.destination.outputs.chart_ref }}
+    env:
+      TAG_NAME: ${{ inputs.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Resolve and validate the release tag
+        id: release
+        run: |
+          set -euo pipefail
+          if [[ ! "${TAG_NAME}" =~ ^chart-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::tag_name must match chart-vX.Y.Z, got '${TAG_NAME}'"
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          read -r type sha < <(gh api "repos/${GH_REPO}/git/ref/tags/${TAG_NAME}" --jq '"\(.object.type) \(.object.sha)"')
+          if [ "${type}" = "tag" ]; then
+            sha=$(gh api "repos/${GH_REPO}/git/tags/${sha}" --jq '.object.sha')
+          fi
+          read -r draft target < <(gh api "repos/${GH_REPO}/releases/tags/${TAG_NAME}" --jq '"\(.draft) \(.target_commitish)"')
+          if [ "${draft}" != "false" ] || [ "${target}" != "${sha}" ]; then
+            echo "::error::${TAG_NAME} must be a published release whose target is ${sha} (draft=${draft}, target=${target}). release-please creates releases that way; a release made by hand does not qualify."
+            exit 1
+          fi
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          persist-credentials: false
+
+      - name: Load version pins
+        run: |
+          grep -E '^[A-Z_0-9]+=' versions.env >> "$GITHUB_ENV"
+          {
+            echo "HELM_CACHE_HOME=${RUNNER_TEMP}/helm/cache"
+            echo "HELM_CONFIG_HOME=${RUNNER_TEMP}/helm/config"
+            echo "HELM_DATA_HOME=${RUNNER_TEMP}/helm/data"
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve and validate the destination
+        id: destination
+        # A dispatch can name any repository, so the input is checked against
+        # the configured one (or an explicit allowlist of hosts) rather than
+        # trusted: credentials and a signature must not go to a mistyped host.
+        env:
+          OVERRIDE: ${{ inputs.chart_repository }}
+          CONFIGURED: ${{ vars.CHART_REPOSITORY }}
+          DEFAULT: ttl.sh/${{ github.repository }}/charts
+          ALLOWLIST: ${{ vars.CHART_REGISTRY_ALLOWLIST }}
+        run: |
+          set -euo pipefail
+          configured="$(echo "${CONFIGURED:-$DEFAULT}" | tr '[:upper:]' '[:lower:]')"
+          repository="$(echo "${OVERRIDE:-$configured}" | tr '[:upper:]' '[:lower:]')"
+          host="${repository%%/*}"
+          allowed="${ALLOWLIST:-${configured%%/*}}"
+          ok=false
+          for h in ${allowed//,/ }; do
+            [ "${host}" = "${h}" ] && ok=true
+          done
+          if [ "${ok}" != true ]; then
+            echo "::error::'${repository}' is on host '${host}', which is neither the configured destination host nor in CHART_REGISTRY_ALLOWLIST (${allowed})."
+            exit 1
+          fi
+          name="$(awk '/^name:/ {print $2; exit}' deploy/chart/Chart.yaml)"
+          if [[ ! "${name}" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]]; then
+            echo "::error::Chart.yaml name '${name}' is not a valid OCI repository segment"
+            exit 1
+          fi
+          {
+            echo "CHART_NAME=${name}"
+            echo "CHART_REPOSITORY=${repository}"
+            echo "REGISTRY_HOST=${host}"
+            echo "CHART_REF=${repository}/${name}"
+          } >> "$GITHUB_ENV"
+          echo "chart_ref=${repository}/${name}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${name} ${VERSION} to oci://${repository}"
+
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
+
+      - uses: oras-project/setup-oras@1d808f7d7f6995cc68b7bf507bfe5c5446e1dc9d  # v2.0.1
+        with:
+          version: ${{ env.ORAS_VERSION }}
+
+      - name: Install the Artifact Hub CLI
+        # Verified against the sha256 committed in versions.env before it runs
+        # in a job that holds registry credentials.
+        run: |
+          set -euo pipefail
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "::error::the committed checksum is for x86_64 and this runner is $(uname -m)"
+            exit 1
+          fi
+          mkdir -p "${RUNNER_TEMP}/bin"
+          curl -fsSL "https://github.com/artifacthub/hub/releases/download/v${AH_VERSION}/ah_${AH_VERSION}_linux_amd64.tar.gz" -o "${RUNNER_TEMP}/ah.tar.gz"
+          echo "${AH_SHA256_LINUX_AMD64}  ${RUNNER_TEMP}/ah.tar.gz" | sha256sum -c -
+          tar -xzf "${RUNNER_TEMP}/ah.tar.gz" -C "${RUNNER_TEMP}/bin" ah
+          echo "${RUNNER_TEMP}/bin" >> "$GITHUB_PATH"
+
+      # cosign and oras read the docker config; helm keeps its own registry
+      # config, so a real registry needs both logins.
+      - name: Log in to the registry (docker config, for cosign and oras)
+        if: env.HAS_REGISTRY_CREDENTIALS == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ secrets.CHART_REGISTRY_USERNAME }}
+          password: ${{ secrets.CHART_REGISTRY_PASSWORD }}
+
+      - name: Log in to the registry (helm)
+        if: env.HAS_REGISTRY_CREDENTIALS == 'true'
+        env:
+          USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME }}
+          PASSWORD: ${{ secrets.CHART_REGISTRY_PASSWORD }}
+        run: helm registry login "${REGISTRY_HOST}" --username "${USERNAME}" --password-stdin <<< "${PASSWORD}"
+
+      - name: Add the per-release Artifact Hub images annotation
+        # Shared with the chart-ci dry run, so this path is exercised on every
+        # chart pull request rather than first on release day.
+        run: .github/scripts/chart-annotate-images.sh deploy/chart
+
+      - name: Validate Artifact Hub metadata
+        run: ah lint --kind helm --path deploy/chart
+
+      - name: Package the chart
+        # The version comes from the validated tag. appVersion is left as
+        # committed, so the default image tag is an app release that already
+        # exists.
+        run: helm package deploy/chart --version "${VERSION}" --destination dist
+
+      - name: Push the chart
+        id: push
+        # pipefail: the default shell is `bash -e` without it, so a failing
+        # helm push would be masked by tee, and its error text can itself
+        # contain a sha256 the capture below would match.
+        run: |
+          set -euo pipefail
+          helm push "dist/${CHART_NAME}-${VERSION}.tgz" "oci://${CHART_REPOSITORY}" 2>&1 | tee push.log
+          digest=$(grep -o 'sha256:[a-f0-9]\{64\}' push.log | head -1)
+          if [ -z "${digest}" ]; then
+            echo "::error::Could not capture the chart digest from the helm push output"
+            exit 1
+          fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+
+      # By digest, never by tag: a tag can be repointed after the signature.
+      - name: Sign the chart
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "${CHART_REF}@${DIGEST}"
+
+      - name: Push the Artifact Hub repository metadata
+        # artifacthub-repo.yml rides next to the chart as its own OCI artifact
+        # under the artifacthub.io tag; Artifact Hub reads it for ownership
+        # and the verified-publisher badge. .helmignore keeps it out of the
+        # package itself.
+        working-directory: deploy/chart
+        run: |
+          oras push "${CHART_REF}:artifacthub.io" \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+
+      - name: Append the install section to the release notes
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          set -euo pipefail
+          # Idempotent: a re-run must not stack another section.
+          if gh release view "${TAG_NAME}" --json body -q .body | grep -q '^## Install$'; then
+            echo "Release notes already carry the install section; skipping."
+            exit 0
+          fi
+          app_version="$(awk '/^appVersion:/ {print $2; exit}' deploy/chart/Chart.yaml | tr -d '"')"
+          {
+            gh release view "${TAG_NAME}" --json body -q .body
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Install"
+            echo ""
+            echo '```bash'
+            echo "helm install ${CHART_NAME} oci://${CHART_REF} --version ${VERSION}"
+            echo '```'
+            echo ""
+            echo "Chart \`${VERSION}\` defaults to app \`${app_version}\`."
+            if [ "${REGISTRY_HOST}" = "ttl.sh" ]; then
+              echo ""
+              echo "ttl.sh is an ephemeral registry: this artifact is gone within 24 hours. Set the CHART_REPOSITORY variable to publish somewhere durable."
+            fi
+            echo ""
+            echo "Signature:"
+            echo ""
+            echo '```bash'
+            echo "cosign verify ${CHART_REF}@${DIGEST} \\"
+            echo "  --certificate-identity-regexp '^https://github\\.com/${GH_REPO}/\\.github/workflows/publish-chart\\.yml@' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo '```'
+          } | gh release edit "${TAG_NAME}" --notes-file -

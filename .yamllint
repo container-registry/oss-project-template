@@ -10,6 +10,11 @@ ignore: |
   dist/
   .task/
   vendor/
+  # Go template syntax is not valid YAML. Everything else under deploy/chart,
+  # values, Chart.yaml and the ci/ scenarios, is linted here and again by
+  # `ct lint` with chart-testing's own config.
+  /deploy/chart/templates/
+  /deploy/chart/tests/__snapshot__/
 
 rules:
   line-length: disable
@@ -20,6 +25,10 @@ rules:
     check-keys: false
   # Pure style, and GitHub's own workflow docs do not use it.
   document-start: disable
+  # release-please's helm updater re-emits the appVersion line of Chart.yaml
+  # with a single space before its `# x-release-please-version` marker.
+  comments:
+    min-spaces-from-content: 1
   braces:
     # Empty flow mappings are how `permissions: {}` denies every scope.
     min-spaces-inside: 0

@@ -1,0 +1,101 @@
+---
+# -- Number of replicas.
+replicaCount: 1
+
+image:
+  # -- Image repository. Rewritten by `task bootstrap`.
+  repository: ghcr.io/container-registry/oss-project-template
+  # -- Image tag. Defaults to the chart's appVersion.
+  tag: ""
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+
+# -- Names of image pull Secrets in the release namespace.
+imagePullSecrets: []
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Override the fully qualified resource name.
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a ServiceAccount for the workload.
+  create: true
+  # -- Name of the ServiceAccount. Defaults to the release fullname when created, `default` otherwise.
+  name: ""
+  # -- Annotations for the ServiceAccount, for example a cloud IAM binding.
+  annotations: {}
+  # -- Mount the API token into the pod. The service does not talk to the API server.
+  automountServiceAccountToken: false
+
+# -- Annotations added to the pod.
+podAnnotations: {}
+
+# -- Labels added to every resource.
+commonLabels: {}
+
+# -- Pod security context. The defaults satisfy the restricted Pod Security Standard.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context. The defaults satisfy the restricted Pod Security Standard.
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  # -- Service type.
+  type: ClusterIP
+  # -- Service port.
+  port: 8080
+  # -- Container port the Service forwards to.
+  targetPort: 8080
+
+# -- Resource requests and limits. Set on purpose: the pack's linters fail on unset resources.
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+livenessProbe:
+  # -- Enable the HTTP liveness probe.
+  enabled: true
+  # -- Path the liveness probe requests on the container port.
+  path: /healthz
+  # -- Seconds before the first liveness probe.
+  initialDelaySeconds: 5
+  # -- Seconds between liveness probes.
+  periodSeconds: 10
+
+readinessProbe:
+  # -- Enable the HTTP readiness probe.
+  enabled: true
+  # -- Path the readiness probe requests on the container port.
+  path: /readyz
+  # -- Seconds before the first readiness probe.
+  initialDelaySeconds: 5
+  # -- Seconds between readiness probes.
+  periodSeconds: 10
+
+# -- Extra environment variables for the container, as a list of EnvVar objects.
+extraEnv: []
+
+# -- Node selector for pod placement.
+nodeSelector: {}
+
+# -- Tolerations for pod placement.
+tolerations: []
+
+# -- Affinity rules for pod placement.
+affinity: {}

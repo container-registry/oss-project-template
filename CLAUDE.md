@@ -21,6 +21,11 @@ Never inline a build or test command into a workflow. Add it to `Taskfile.yml` a
 - The repository squash-merges, so **the pull request title is the commit that lands** and the one
   release-please parses. Get the title right; individual commit subjects matter much less.
 - `feat:` and `fix:` drive the version. See `docs/RELEASES.md`.
+<!-- pack:chart:start -->
+- Two release lines: the app (`vX.Y.Z`) and the chart in `deploy/chart` (`chart-vX.Y.Z`), each with its own
+  config in `.release-please/`, changelog and release PR. Scope chart-only changes `(chart)` and keep them
+  inside `deploy/chart`; `task helm:ci` is the chart's whole gate.
+<!-- pack:chart:end -->
 - Do not hand-edit `CHANGELOG.md`, and never push a `v*` tag by hand. release-please owns both.
 
 ## Things that will waste your time if you do not know them

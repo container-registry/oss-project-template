@@ -1,0 +1,53 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.deprecationWarning" . }}
+
+{{ template "chart.description" . }}
+
+## Install
+
+{{/* The markers let the chart release PR restamp the version below, since
+release-please rewrites Chart.yaml without re-running helm-docs. */}}
+<!-- x-release-please-start-version -->
+```sh
+helm install {{ .Name }} \
+  oci://ttl.sh/container-registry/{{ .Name }}/charts/{{ .Name }} \
+  --version {{ .Version }}
+```
+<!-- x-release-please-end -->
+
+The image tag defaults to the chart's `appVersion`. Set `image.tag` to pin a
+different application release.
+
+## Verifying the chart signature
+
+Every released chart is signed keyless with Sigstore from the release workflow,
+so there is no key to distribute: the signing identity is the workflow itself.
+
+<!-- x-release-please-start-version -->
+```sh
+cosign verify \
+  --certificate-identity-regexp '^https://github\.com/container-registry/{{ .Name }}/\.github/workflows/publish-chart\.yml@refs/heads/main$' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  ttl.sh/container-registry/{{ .Name }}/charts/{{ .Name }}:{{ .Version }}
+```
+<!-- x-release-please-end -->
+
+## What the chart does
+
+- Renders a Deployment, a Service and, by default, a ServiceAccount.
+- Nothing is generated at render time, so Argo CD and Flux see no drift. CI
+  renders the GitOps scenario twice and fails on any difference.
+- A closed `values.schema.json` rejects unknown or mistyped values before
+  anything reaches the cluster.
+- The defaults satisfy the restricted Pod Security Standard.
+
+Adding a value means touching three places: `values.yaml` (with a `# --`
+helm-docs comment), `values.schema.json`, and a test under `tests/`. Then run
+`task helm:docs` to regenerate this file.
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.requirementsSection" . }}
+
+{{ template "chart.valuesSection" . }}

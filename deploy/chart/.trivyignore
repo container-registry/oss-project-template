@@ -1,0 +1,5 @@
+# Trivy misconfiguration suppressions for the rendered chart.
+#
+# The CI gate is `--severity HIGH,CRITICAL` and the default render has no
+# findings at any severity, so this file holds no suppressions. Add an ID here
+# only with the reason next to it; a bare ID is a finding nobody can re-judge.

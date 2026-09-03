@@ -1,0 +1,3 @@
+---
+# Default install: no overrides. chart-testing renders every ci/*-values.yaml.
+{}

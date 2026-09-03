@@ -25,6 +25,8 @@ The template is deliberately opinionated. It assumes your project looks like thi
   merges default to zero required approvals, and bots handle labels, releases and settings drift.
 - **Go first, but not Go only.** The Go pack builds, tests and ships a signed multi-arch container image.
   `task bootstrap --lang=none` drops it and keeps everything else for any language.
+- **A Helm chart with its own release line.** The chart pack lints, unit-tests, scans and publishes a signed
+  OCI chart, versioned independently of the app. `task bootstrap --chart=none` drops it.
 - **Releases nobody cuts by hand.** Conventional commits, squash merge and release-please decide the version,
   changelog, tag, GitHub release, images, SBOMs and provenance.
 
@@ -36,7 +38,7 @@ forge other than GitHub. Those are load-bearing assumptions, not defaults you fl
 ```bash
 gh repo create <your-org>/my-project --template container-registry/oss-project-template --private --clone
 cd my-project
-task bootstrap          # prompts, or pass --org-name etc; --lang=none drops the Go pack
+task bootstrap          # prompts, or pass --org-name etc; --lang=none drops the Go pack, --chart=none the chart
 task check              # the same gates CI runs
 ```
 
@@ -52,6 +54,9 @@ CHECKLIST.md, and then runs the consistency checks so a half-applied template fa
   container image smoke test. It skips itself when there is no `go.mod`.
 - **Releases without ceremony.** Conventional commits drive the version, the changelog, the tag, the GitHub
   release, signed multi-arch images, SBOMs and build provenance. See [docs/RELEASES.md](docs/RELEASES.md).
+- **A chart pack that proves itself.** helm lint, chart-testing, kube-linter, Artifact Hub metadata, a closed
+  values schema, helm-unittest, a GitOps determinism check, Trivy, and a release that packages, pushes and
+  signs the chart. It publishes to ttl.sh until you point it at a registry, so the flow works with zero secrets.
 - **Security defaults that are on.** Secret scanning with push protection, private vulnerability reporting,
   Dependabot, CodeQL, OpenSSF Scorecard, a branch ruleset, and a `SECURITY.md` with a real disclosure policy.
 - **Settings as code.** Labels, merge strategy, security toggles and the ruleset live in
@@ -101,6 +106,10 @@ task setup    # install the pinned tools and the git hooks
 task check    # run the gates CI runs
 task --list   # everything else
 ```
+
+<!-- pack:chart:start -->
+The Helm chart lives in `deploy/chart`; `task helm:ci` runs its whole quality gate.
+<!-- pack:chart:end -->
 
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md). Repository automation is documented in
 [docs/repo-automation.md](docs/repo-automation.md), and the release process in [docs/RELEASES.md](docs/RELEASES.md).

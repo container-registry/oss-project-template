@@ -62,6 +62,18 @@ MARKER_LINE = re.compile(
 )
 
 
+def pack_block(name: str) -> re.Pattern:
+    """Match prose that only belongs in the file while the `name` pack exists."""
+    return re.compile(
+        rf"[ \t]*<!--[ ]*pack:{name}:start[ ]*-->.*?<!--[ ]*pack:{name}:end[ ]*-->[ \t]*\n?",
+        re.S,
+    )
+
+
+# The pack markers themselves never survive, whether or not the block does.
+PACK_MARKER_LINE = re.compile(r"^[ \t]*<!--[ ]*pack:[a-z]+:(?:start|end)[ ]*-->[ \t]*\n", re.M)
+
+
 @dataclasses.dataclass(frozen=True)
 class Field:
     key: str
@@ -127,11 +139,12 @@ def collect(args) -> dict[str, str]:
     return values
 
 
-def substitute(values: dict[str, str], dry_run: bool) -> int:
+def substitute(values: dict[str, str], removed_packs: set[str], dry_run: bool) -> int:
     # For an omitted optional value, remove the whole marked block, then any
     # stray line that still mentions the placeholder.
     blank = [field.key for field in FIELDS if not field.required and not values[field.key]]
     blocks = [optional_block(key) for key in blank]
+    blocks += [pack_block(name) for name in sorted(removed_packs)]
     drops = [re.compile(rf"^.*\{{\{{{key}\}}\}}.*$\n?", re.M) for key in blank]
 
     changed = 0
@@ -152,6 +165,7 @@ def substitute(values: dict[str, str], dry_run: bool) -> int:
 
         # Whatever blocks survived, their markers do not.
         text = MARKER_LINE.sub("", text)
+        text = PACK_MARKER_LINE.sub("", text)
 
         for key, value in values.items():
             text = text.replace(f"{{{{{key}}}}}", value)
@@ -173,9 +187,15 @@ GO_PACK = [
 ]
 
 
-def remove_go_pack(dry_run: bool) -> None:
-    """Remove the Go pack and the two references that would otherwise dangle."""
+def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
+    """Remove the Go pack and the two references that would otherwise dangle.
+
+    The setup composite installs Go and Task. chart-ci.yml uses it for Task
+    alone, so it stays while the chart pack does.
+    """
     for rel in GO_PACK:
+        if keep_setup_action and rel == ".github/actions/setup":
+            continue
         path = ROOT / rel
         if not path.exists():
             continue
@@ -196,8 +216,10 @@ def remove_go_pack(dry_run: bool) -> None:
     # The automation reference documents files that no longer exist.
     doc = ROOT / "docs/repo-automation.md"
     if doc.exists() and not dry_run:
-        gone = ("ci.yml", "release-assets.yml", "publish-image.yml", ".github/actions/setup",
+        gone = ("ci.yml", "release-assets.yml", "publish-image.yml",
                 ".golangci.yaml", "Dockerfile", "go.mod", "vulnerability-comment.sh")
+        if not keep_setup_action:
+            gone += (".github/actions/setup",)
         kept = [
             line for line in doc.read_text(encoding="utf-8").splitlines(keepends=True)
             if not (line.lstrip().startswith("|") and any(name in line for name in gone))
@@ -224,6 +246,91 @@ def remove_go_pack(dry_run: bool) -> None:
         print("removed the publish jobs from release-please.yml")
 
 
+CHART_PACK = [
+    "deploy/chart", "taskfile/helm.yml", "taskfile/ct-lintconf.yaml",
+    ".github/workflows/chart-ci.yml", ".github/workflows/publish-chart.yml",
+    ".github/scripts/chart-annotate-images.sh",
+    ".release-please/config-chart.json", ".release-please/manifest-chart.json",
+]
+
+
+def remove_paths(paths: list[str], dry_run: bool) -> None:
+    for rel in paths:
+        path = ROOT / rel
+        if not path.exists():
+            continue
+        print(f"{'would remove' if dry_run else 'removing'} {rel}")
+        if dry_run:
+            continue
+        if path.is_dir():
+            for child in sorted(path.rglob("*"), reverse=True):
+                child.unlink() if child.is_file() else child.rmdir()
+            path.rmdir()
+        else:
+            path.unlink()
+        # A pack directory such as taskfile/ is not worth keeping empty.
+        parent = path.parent
+        while parent != ROOT and not any(parent.iterdir()):
+            parent.rmdir()
+            parent = parent.parent
+
+
+def prune_automation_doc(gone: tuple[str, ...], dry_run: bool) -> None:
+    """Drop the table rows of docs/repo-automation.md that name removed files."""
+    doc = ROOT / "docs/repo-automation.md"
+    if doc.exists() and not dry_run:
+        kept = [
+            line for line in doc.read_text(encoding="utf-8").splitlines(keepends=True)
+            if not (line.lstrip().startswith("|") and any(name in line for name in gone))
+        ]
+        doc.write_text("".join(kept), encoding="utf-8")
+        print("pruned docs/repo-automation.md")
+
+
+def remove_jobs(rel: str, jobs: tuple[str, ...], dry_run: bool) -> None:
+    """Delete top-level jobs from a workflow, comments above them included."""
+    path = ROOT / rel
+    if path.exists() and not dry_run:
+        text = path.read_text(encoding="utf-8")
+        for job in jobs:
+            text = re.sub(rf"\n(?:  #[^\n]*\n)*  {job}:\n(?:(?:    |\n).*\n)*", "\n", text)
+        # Deleting the last job leaves its separator behind; yamllint rejects
+        # a trailing blank line.
+        text = re.sub(r"\n{3,}", "\n\n", text).rstrip("\n") + "\n"
+        path.write_text(text, encoding="utf-8")
+        print(f"removed {', '.join(jobs)} from {rel}")
+
+
+def remove_chart_pack(dry_run: bool) -> None:
+    """Remove the Helm chart pack and everything that would otherwise dangle."""
+    remove_paths(CHART_PACK, dry_run)
+    prune_automation_doc(("chart-ci.yml", "publish-chart.yml", "taskfile/helm.yml", "ct-lintconf.yaml",
+                          "chart-annotate-images.sh", "config-chart.json", "deploy/chart"), dry_run)
+    remove_jobs(".github/workflows/release-please.yml", ("release-please-chart", "publish-helm-chart"), dry_run)
+    remove_jobs(".github/workflows/pr-title.yml", ("chart-scope-paths",), dry_run)
+
+    if dry_run:
+        return
+    taskfile = ROOT / "Taskfile.yml"
+    text = taskfile.read_text(encoding="utf-8")
+    pruned = re.sub(r"\n(?:#[^\n]*\n)*includes:\n(?:  .*\n)*", "\n", text, count=1)
+    if pruned != text:
+        taskfile.write_text(pruned, encoding="utf-8")
+        print("removed the helm include from Taskfile.yml")
+    versions = ROOT / "versions.env"
+    text = versions.read_text(encoding="utf-8")
+    pruned = re.sub(r"\n# --- Helm pack -*\n.*?(?=\n# --- |\Z)", "\n", text, count=1, flags=re.S)
+    if pruned != text:
+        versions.write_text(pruned.rstrip("\n") + "\n", encoding="utf-8")
+        print("removed the Helm pack pins from versions.env")
+    labeler = ROOT / ".github/labeler.yml"
+    text = labeler.read_text(encoding="utf-8")
+    pruned = re.sub(r"component/chart:\n(?:  .*\n)*\n?", "", text, count=1)
+    if pruned != text:
+        labeler.write_text(pruned, encoding="utf-8")
+        print("removed the component/chart label from labeler.yml")
+
+
 def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
     """Update the two files that cannot carry a placeholder.
 
@@ -240,6 +347,22 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
             print(f"{'would set' if dry_run else 'setting'} go.mod module to {values['MODULE_PATH']}")
             if not dry_run:
                 module.write_text(updated, encoding="utf-8")
+
+    # The chart cannot carry placeholders either: helm lint runs on the
+    # template itself. Its name and the image it deploys follow the repository.
+    chart = ROOT / "deploy/chart"
+    if chart.is_dir():
+        org, repo = values["ORG_NAME"], values["REPO_NAME"]
+        for path in sorted(chart.rglob("*")):
+            if not path.is_file() or path.suffix not in TEXT_SUFFIXES | {".gotmpl", ".tpl", ".txt"}:
+                continue
+            text = path.read_text(encoding="utf-8")
+            updated = text.replace("container-registry/oss-project-template", f"{org}/{repo}".lower())
+            updated = updated.replace("oss-project-template", repo)
+            if updated != text:
+                print(f"{'would rewrite' if dry_run else 'rewriting'} {path.relative_to(ROOT)} for {org}/{repo}")
+                if not dry_run:
+                    path.write_text(updated, encoding="utf-8")
 
     settings = ROOT / ".github/settings.yml"
     if settings.exists():
@@ -274,6 +397,8 @@ def reset_release_state(dry_run: bool) -> None:
 
     resets = (
         (ROOT / ".release-please/manifest-app.json", '{\n  ".": "0.0.0"\n}\n'),
+        (ROOT / ".release-please/manifest-chart.json", '{\n  "deploy/chart": "0.0.0"\n}\n'),
+        (ROOT / "deploy/chart/CHANGELOG.md", "# Changelog\n"),
         (ROOT / "version.txt", "0.0.0\n"),
         (ROOT / "CHANGELOG.md", "# Changelog\n"),
     )
@@ -283,6 +408,20 @@ def reset_release_state(dry_run: bool) -> None:
         print(f"{'would reset' if dry_run else 'resetting'} {path.relative_to(ROOT)}")
         if not dry_run:
             path.write_text(content, encoding="utf-8")
+
+
+def reset_chart_versions(dry_run: bool) -> None:
+    """Chart.yaml carries the template's own versions; both start at zero too."""
+    chart = ROOT / "deploy/chart/Chart.yaml"
+    if not chart.exists():
+        return
+    text = chart.read_text(encoding="utf-8")
+    updated = re.sub(r"^version: .*$", "version: 0.0.0", text, count=1, flags=re.M)
+    updated = re.sub(r'^appVersion: "[^"]*"', 'appVersion: "v0.0.0"', updated, count=1, flags=re.M)
+    if updated != text:
+        print(f"{'would reset' if dry_run else 'resetting'} deploy/chart/Chart.yaml versions")
+        if not dry_run:
+            chart.write_text(updated, encoding="utf-8")
 
 
 def write_provenance(values: dict[str, str], dry_run: bool) -> None:
@@ -320,6 +459,8 @@ def main() -> int:
         parser.add_argument(f"--{field.key.lower().replace('_', '-')}", dest=field.key.lower())
     parser.add_argument("--lang", choices=["go", "none"], default="go",
                         help="Keep the Go and container pack, or remove it")
+    parser.add_argument("--chart", choices=["helm", "none"], default="helm",
+                        help="Keep the Helm chart pack and its release line, or remove it")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -328,14 +469,18 @@ def main() -> int:
         return 0
 
     values = collect(args)
-    changed = substitute(values, args.dry_run)
+    removed_packs = {"chart"} if args.chart == "none" else set()
+    changed = substitute(values, removed_packs, args.dry_run)
     print(f"{'would rewrite' if args.dry_run else 'rewrote'} {changed} file(s)")
 
     if args.lang == "none":
-        remove_go_pack(args.dry_run)
+        remove_go_pack(args.dry_run, keep_setup_action=args.chart != "none")
+    if args.chart == "none":
+        remove_chart_pack(args.dry_run)
 
     rewrite_identity_files(values, args.dry_run)
     reset_release_state(args.dry_run)
+    reset_chart_versions(args.dry_run)
     write_provenance(values, args.dry_run)
 
     for rel in TEMPLATE_ONLY:
