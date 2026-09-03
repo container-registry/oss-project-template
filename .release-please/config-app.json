@@ -9,7 +9,8 @@
   "bump-minor-pre-major": true,
   "exclude-paths": [
     "docs",
-    ".github"
+    ".github",
+    ".release-please"
   ],
   "packages": {
     ".": {}

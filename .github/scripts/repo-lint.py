@@ -113,28 +113,28 @@ def check_labeler_labels_declared(errors: list[str]) -> None:
 
 def check_release_please_packages_exist(errors: list[str]) -> None:
     """release-please silently tracks package paths that do not exist."""
-    config = ROOT / "release-please-config.json"
-    manifest = ROOT / ".release-please-manifest.json"
+    config = ROOT / ".release-please/config-app.json"
+    manifest = ROOT / ".release-please/manifest-app.json"
     if not config.exists():
         return
 
     packages = json.loads(config.read_text(encoding="utf-8")).get("packages") or {}
     for pkg in packages:
         if not (ROOT / pkg).is_dir():
-            errors.append(f"release-please-config.json tracks package {pkg!r}, which is not a directory")
+            errors.append(f".release-please/config-app.json tracks package {pkg!r}, which is not a directory")
 
     if manifest.exists():
         tracked = set(json.loads(manifest.read_text(encoding="utf-8")))
         for pkg in sorted(tracked - set(packages)):
-            errors.append(f".release-please-manifest.json pins {pkg!r}, which release-please-config.json does not track")
+            errors.append(f".release-please/manifest-app.json pins {pkg!r}, which config-app.json does not track")
         for pkg in sorted(set(packages) - tracked):
-            errors.append(f"release-please-config.json tracks {pkg!r}, which .release-please-manifest.json does not pin")
+            errors.append(f".release-please/config-app.json tracks {pkg!r}, which manifest-app.json does not pin")
 
 
 def check_version_file_matches_manifest(errors: list[str]) -> None:
     """With release-type `simple`, version.txt and the manifest must agree."""
-    config = ROOT / "release-please-config.json"
-    manifest = ROOT / ".release-please-manifest.json"
+    config = ROOT / ".release-please/config-app.json"
+    manifest = ROOT / ".release-please/manifest-app.json"
     version = ROOT / "version.txt"
     if not (config.exists() and manifest.exists() and version.exists()):
         return
@@ -144,7 +144,7 @@ def check_version_file_matches_manifest(errors: list[str]) -> None:
     pinned = json.loads(manifest.read_text(encoding="utf-8")).get(".")
     actual = version.read_text(encoding="utf-8").strip()
     if pinned != actual:
-        errors.append(f"version.txt is {actual!r} but .release-please-manifest.json pins {pinned!r}")
+        errors.append(f"version.txt is {actual!r} but .release-please/manifest-app.json pins {pinned!r}")
 
 
 def check_referenced_paths_exist(errors: list[str]) -> None:

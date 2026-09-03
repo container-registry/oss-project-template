@@ -4,7 +4,7 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 `v*` tag or create a GitHub Release by hand, and never edit `CHANGELOG.md`; release-please owns all three. The
 repository squash-merges, so the pull request title is the commit release-please parses.
 
-Release state is defined by conventional commits on `main`, `release-please-config.json`, `.release-please-manifest.json`, and `CHANGELOG.md`.
+Release state is defined by conventional commits on `main`, the config and manifest in `.release-please/`, `version.txt` and `CHANGELOG.md`. The directory is itself in `exclude-paths`, so editing release configuration never cuts a release, and a second release line can exclude it the same way.
 
 ## How It Works
 
@@ -21,7 +21,7 @@ Release state is defined by conventional commits on `main`, `release-please-conf
 | `perf:`, `revert:`, `docs:`, `refactor:` | Patch | Own section |
 | `ci:`, `chore:`, `build:`, `style:`, `test:` | None on their own | Not shown |
 
-Both columns are set by `changelog-sections` in `release-please-config.json`, and the second drives the first.
+Both columns are set by `changelog-sections` in `.release-please/config-app.json`, and the second drives the first.
 A section marked `hidden: true` contributes no lines to the changelog entry, and release-please skips the
 release outright when the entry comes out empty:
 
@@ -46,14 +46,14 @@ Confirm the bump you expect with a dry run before relying on it:
 
 ```bash
 npx release-please release-pr --dry-run \
-  --repo-url=<owner>/<repo> --config-file=release-please-config.json \
-  --manifest-file=.release-please-manifest.json
+  --repo-url=<owner>/<repo> --config-file=.release-please/config-app.json \
+  --manifest-file=.release-please/manifest-app.json
 ```
 
 ## The Version Baseline
 
 release-please finds the previous release by looking for the tag matching the version in
-`.release-please-manifest.json`. **The manifest version and the newest release tag must agree.** When they do
+`.release-please/manifest-app.json`. **The manifest version and the newest release tag must agree.** When they do
 not, release-please finds no previous release, walks the whole history, and replays old commits into the next
 changelog.
 
@@ -74,9 +74,9 @@ tag: its `version-file` option defaults to empty and the file updater is registe
 Switching to `go` without setting `"version-file"` leaves `version.txt` frozen with nothing replacing it, and
 the version stamped into release binaries goes stale with it.
 
-`exclude-paths` is set to `docs` and `.github`, so a change confined to those directories does not cut a
-release: documentation, workflows, issue templates and the settings file change nothing that ships. It covers
-those two trees only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside
+`exclude-paths` is set to `docs`, `.github` and `.release-please`, so a change confined to those directories does
+not cut a release: documentation, workflows, issue templates, the settings file and the release configuration
+change nothing that ships. It covers those trees only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside
 it, so a `docs:` commit touching those still produces a patch release, and a `fix:` to `Taskfile.yml` does
 too. Add paths to `exclude-paths` if that is not what you want.
 
@@ -141,7 +141,7 @@ a `paths:` or `paths-ignore:` filter directly: it does not report at all on a pu
 filter, and the check waits forever.
 
 Do not work around a blocked release pull request by pushing a tag by hand. The tag and
-`.release-please-manifest.json` then disagree permanently, and every later release inherits the mismatch.
+`.release-please/manifest-app.json` then disagree permanently, and every later release inherits the mismatch.
 
 ## Required Repository Settings
 
@@ -164,7 +164,7 @@ Before merging a release pull request:
 1. The proposed bump matches the commits since the last release (`feat:` minor, `fix:` patch, breaking
    change major). If it does not, the cause is usually a commit type or a path, see above; fix the config
    and push to `main`, the pull request rewrites itself.
-2. `CHANGELOG.md`, `version.txt` and `.release-please-manifest.json` all show the new version.
-3. `release-as` is absent from `release-please-config.json`.
+2. `CHANGELOG.md`, `version.txt` and `.release-please/manifest-app.json` all show the new version.
+3. `release-as` is absent from `.release-please/config-app.json`.
 4. After the merge, the `Release Please` workflow completes and the release notes end with the verification
    commands.

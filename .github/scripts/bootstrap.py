@@ -248,17 +248,17 @@ def reset_release_state(dry_run: bool) -> None:
     that will never exist. Reset all three so the first `feat:` produces
     v0.1.0, and strip `bootstrap-sha` if the template still carries one.
     """
-    config = ROOT / "release-please-config.json"
+    config = ROOT / ".release-please/config-app.json"
     if config.exists():
         text = config.read_text(encoding="utf-8")
         stripped = re.sub(r'^[ \t]*"bootstrap-sha":[^\n]*\n', "", text, flags=re.M)
         if stripped != text:
-            print(f"{'would remove' if dry_run else 'removing'} bootstrap-sha from release-please-config.json")
+            print(f"{'would remove' if dry_run else 'removing'} bootstrap-sha from .release-please/config-app.json")
             if not dry_run:
                 config.write_text(stripped, encoding="utf-8")
 
     resets = (
-        (ROOT / ".release-please-manifest.json", '{\n  ".": "0.0.0"\n}\n'),
+        (ROOT / ".release-please/manifest-app.json", '{\n  ".": "0.0.0"\n}\n'),
         (ROOT / "version.txt", "0.0.0\n"),
         (ROOT / "CHANGELOG.md", "# Changelog\n"),
     )
