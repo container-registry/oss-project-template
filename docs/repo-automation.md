@@ -18,7 +18,7 @@ short version of this in a header comment; this is the map.
 | `apply-settings.yml` | Applies `.github/settings.yml`, and checks for drift weekly. | `SETTINGS_TOKEN` |
 | `release-please.yml` | Opens release pull requests and triggers publishing. | nothing |
 | `release-assets.yml` | Builds, attests and uploads binaries and their SBOM. | nothing |
-| `publish-image.yml` | Builds, pushes, signs and attests the container image. | nothing for GHCR |
+| `publish-image.yml` | Builds, pushes, verifies the platform set (`task image:verify`), signs and attests the container image. | nothing for GHCR |
 
 ## Configuration
 

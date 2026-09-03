@@ -11,6 +11,8 @@ set: [errexit, pipefail]
 dotenv: ['versions.env']
 
 vars:
+  # The platform set publish-image.yml builds and image:verify asserts.
+  IMAGE_PLATFORMS: linux/amd64,linux/arm64
   RELEASE_BINARY: '{{.RELEASE_BINARY | default "app"}}'
   RELEASE_DIST: '{{.RELEASE_DIST | default "dist"}}'
   RELEASE_PACKAGE: '{{.RELEASE_PACKAGE | default "."}}'
@@ -167,6 +169,90 @@ tasks:
         docker build
         --build-arg VERSION="$(cat version.txt)"
         -t "{{.RELEASE_BINARY}}:$(cat version.txt)" .
+
+  image:verify:
+    desc: Verify a pushed image index carries exactly IMAGE_PLATFORMS (IMAGE_REF=name@sha256:... or name:tag)
+    status: ['! test -f Dockerfile']
+    requires:
+      vars: [IMAGE_REF]
+    vars:
+      PLATFORMS: '{{.PLATFORMS | default .IMAGE_PLATFORMS}}'
+    preconditions:
+      - sh: docker buildx version >/dev/null 2>&1
+        msg: docker buildx is required to inspect a published image index
+      - sh: command -v jq >/dev/null 2>&1
+        msg: jq is required to inspect a published image index
+    cmds:
+      # The index buildx reports after a push is what it sent, not what the
+      # registry serves. This reads the index back and fails on a missing,
+      # unexpected or duplicated platform, so a half-pushed release cannot
+      # be signed and announced as multi-arch.
+      - cmd: |
+          set -euo pipefail
+          reference='{{.IMAGE_REF}}'
+          # containerd's platform normalisation: arm64 and arm64/v8 are the
+          # same platform, and a bare arm means arm/v7. Applied to both sides,
+          # so an index entry that inherited a variant from its base image
+          # still matches the platform string the build was asked for.
+          normalize() {
+            sed -e 's#^linux/arm64/v8$#linux/arm64#' -e 's#^linux/arm$#linux/arm/v7#'
+          }
+          # grep exits 1 on an all-empty list, which errexit would turn into a
+          # silent abort before the guard below can say what is wrong.
+          expected=$(printf '%s' '{{.PLATFORMS}}' | tr ',' '\n' | tr -d '[:blank:]' | grep -v '^$' | normalize | sort -u || true)
+          if [ -z "${expected}" ]; then
+            echo "No expected platforms given (PLATFORMS/IMAGE_PLATFORMS is empty)" >&2
+            exit 1
+          fi
+
+          if ! raw=$(docker buildx imagetools inspect --raw "${reference}" 2>&1); then
+            echo "Cannot inspect ${reference}: ${raw}" >&2
+            exit 1
+          fi
+
+          if ! media_type=$(printf '%s' "${raw}" | jq -r '.mediaType // ""' 2>/dev/null); then
+            echo "Manifest of ${reference} is not valid JSON" >&2
+            exit 1
+          fi
+          if [ "${media_type}" != "application/vnd.oci.image.index.v1+json" ]; then
+            echo "Not a multi-arch OCI image index: ${reference} (mediaType: ${media_type:-none})" >&2
+            exit 1
+          fi
+
+          # Keyed like a buildx platform string, os/arch with the variant when
+          # there is one, so linux/arm/v6 and linux/arm/v7 are two platforms.
+          # buildx records provenance and SBOM attestations as unknown/unknown
+          # entries of the index; they are attachments, not platforms.
+          actual=$(printf '%s' "${raw}" \
+            | jq -r '.manifests[]? | .platform // {} | "\(.os // "?")/\(.architecture // "?")\(if .variant then "/" + .variant else "" end)" | select(. != "unknown/unknown")' \
+            | normalize | sort)
+          if [ -z "${actual}" ]; then
+            echo "No platform manifests in ${reference}" >&2
+            exit 1
+          fi
+
+          failed=0
+          for platform in ${expected}; do
+            printf '%s\n' "${actual}" | grep -Fqx "${platform}" || {
+              echo "Missing ${platform} manifest in ${reference}" >&2
+              failed=1
+            }
+          done
+          for platform in ${actual}; do
+            printf '%s\n' "${expected}" | grep -Fqx "${platform}" || {
+              echo "Unexpected ${platform} manifest in ${reference}" >&2
+              failed=1
+            }
+          done
+          duplicates=$(printf '%s\n' "${actual}" | uniq -d)
+          if [ -n "${duplicates}" ]; then
+            echo "Duplicate platform manifests in ${reference}: $(printf '%s' "${duplicates}" | tr '\n' ' ')" >&2
+            failed=1
+          fi
+          [ "${failed}" -eq 0 ] || exit 1
+
+          echo "Verified ${reference}: $(printf '%s' "${actual}" | tr '\n' ' ')"
+        silent: true
 
   vuln-check:
     desc: Check dependencies for known vulnerabilities
