@@ -74,10 +74,11 @@ tag: its `version-file` option defaults to empty and the file updater is registe
 Switching to `go` without setting `"version-file"` leaves `version.txt` frozen with nothing replacing it, and
 the version stamped into release binaries goes stale with it.
 
-`exclude-paths` is set to `docs`, so a change confined to that directory does not cut a release. It covers the
-`docs/` tree only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside it, so
-a `docs:` commit touching those still produces a patch release. Add them to `exclude-paths` if that is not what
-you want.
+`exclude-paths` is set to `docs` and `.github`, so a change confined to those directories does not cut a
+release: documentation, workflows, issue templates and the settings file change nothing that ships. It covers
+those two trees only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside
+it, so a `docs:` commit touching those still produces a patch release, and a `fix:` to `Taskfile.yml` does
+too. Add paths to `exclude-paths` if that is not what you want.
 
 The inverse is the part that surprises people: a `feat:` whose every changed file sits under an excluded path
 releases nothing, and it reads as release-please being broken rather than as configuration doing its job.
@@ -90,6 +91,26 @@ if: ${{ needs.release-please.outputs.release_created == 'true' }}
 ```
 
 The release job exposes `tag_name` (for example `v1.2.3`) and `version` (for example `1.2.3`) for publishing images, charts, binaries, or other artifacts. Keep artifact build and publish logic in Taskfile tasks so it can also run locally.
+
+## Behaviour That Looks Like a Bug
+
+Each of these cost a debugging session in a repository adopted from this template. None is a bug.
+
+- **An open release pull request is refreshed only when its body would change.** Moving or renaming the
+  config files, or changing `pull-request-header`, leaves the open pull request pointing at stale paths and
+  the next push to `main` does not touch it. The config sets `always-update: true`, which makes every push
+  rewrite the pull request. Keep it.
+- **`release-as` in the config is permanent, not one-shot.** It applies to every release until it is removed,
+  so the release after the one it was meant for proposes the same version again. Use it for exactly one
+  release and remove it in that release's own pull request, or put a `Release-As: X.Y.Z` footer in a commit
+  instead, which applies once.
+- **`exclude-paths` is evaluated per file, and a commit is dropped only when every file it touches is
+  excluded.** One file outside the excluded paths, even a one-line `README.md` edit in an otherwise
+  workflow-only commit, pulls the whole commit into the changelog and bumps the version.
+- **A hidden commit type cannot carry a release into another release-please package.** Only relevant with more
+  than one release line: the `chore: release X.Y.Z` commit of one line is a `chore:` commit to the other,
+  and with `chore` hidden there the second line sees an empty changelog and opens nothing. Make `chore`
+  visible in the dependent line's config.
 
 ## The Release Pull Request Gets No Workflow Runs
 
@@ -130,3 +151,20 @@ Do not work around a blocked release pull request by pushing a tag by hand. The 
   workflow denies everything at the top level, so any job added there must request its own scopes.
 
 These defaults are declared in `.github/settings.yml`. Applying administrative settings requires a `SETTINGS_TOKEN` with repository administration access.
+
+## Maintainer Checklist
+
+Before merging any pull request:
+
+1. The title is a conventional commit, because the title is the squashed commit.
+2. The merge method is squash.
+
+Before merging a release pull request:
+
+1. The proposed bump matches the commits since the last release (`feat:` minor, `fix:` patch, breaking
+   change major). If it does not, the cause is usually a commit type or a path, see above; fix the config
+   and push to `main`, the pull request rewrites itself.
+2. `CHANGELOG.md`, `version.txt` and `.release-please-manifest.json` all show the new version.
+3. `release-as` is absent from `release-please-config.json`.
+4. After the merge, the `Release Please` workflow completes and the release notes end with the verification
+   commands.
