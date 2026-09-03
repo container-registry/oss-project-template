@@ -16,7 +16,7 @@ Work through it after bootstrap, before the first real pull request.
 | Whether questions get a second inbox | `.github/settings.yml` → `has_discussions` | issues only |
 | Whether a review is required to merge | `.github/settings.yml` → `required_approving_review_count` | 0, so a solo maintainer is not blocked |
 | Which licences dependencies may use | `Taskfile.yml` → `license-check` | forbidden, restricted and unknown rejected |
-| Dependabot or Renovate | `.github/dependabot.yml`, `optional/renovate.json` | Dependabot. Never both |
+| Dependabot or Renovate | `.github/dependabot.yml`, `optional/renovate.json` | Dependabot. Add Renovate limited to `versions.env` if hand-bumping tool pins gets old; never both on the same ecosystem |
 | Whether to publish a Scorecard score | `.github/workflows/scorecard.yml` → `publish_results` | false |
 
 ## 2. Repository setup

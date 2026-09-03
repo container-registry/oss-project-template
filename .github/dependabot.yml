@@ -18,6 +18,11 @@ updates:
     labels: [dependencies, component/ci]
     commit-message:
       prefix: ci
+    # One pull request per week for every action bump: they are reviewed the
+    # same way (SHA, tag comment, changelog) and land as one ci: commit.
+    groups:
+      github-actions:
+        patterns: ['*']
 
   - package-ecosystem: gomod
     directory: /
