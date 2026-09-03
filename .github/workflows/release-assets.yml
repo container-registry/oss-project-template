@@ -3,7 +3,7 @@ name: Release Assets
 
 # What: Builds, attests and uploads the release binaries and their SBOM.
 # Fires on: called by release-please.yml after a release is created.
-# Needs: nothing.
+# Needs: nothing. The tag must belong to a published release whose target is the tagged commit, which is how release-please creates them.
 # Safe to delete if: the project publishes no binaries. It also no-ops on its own without go.mod; remove the caller in release-please.yml if deleted.
 #
 # Called by release-please.yml once a release exists. It is not triggered by
@@ -37,9 +37,37 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      # The tag is the only input that decides what ships, so it is resolved
+      # to a commit here and the checkout uses that commit. A tag moved after
+      # the release was created cannot change what is built, and a dispatch
+      # with a typo, an unknown tag or a draft release fails here instead of
+      # publishing. Annotated tags are dereferenced to the commit they point at.
+      - name: Resolve and validate the release tag
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${TAG_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag_name must match vX.Y.Z, got '${TAG_NAME}'"
+            exit 1
+          fi
+          read -r type sha < <(gh api "repos/${GH_REPO}/git/ref/tags/${TAG_NAME}" --jq '"\(.object.type) \(.object.sha)"')
+          if [ "${type}" = "tag" ]; then
+            sha=$(gh api "repos/${GH_REPO}/git/tags/${sha}" --jq '.object.sha')
+          fi
+          read -r draft target < <(gh api "repos/${GH_REPO}/releases/tags/${TAG_NAME}" --jq '"\(.draft) \(.target_commitish)"')
+          if [ "${draft}" != "false" ] || [ "${target}" != "${sha}" ]; then
+            echo "::error::${TAG_NAME} must be a published release whose target is ${sha} (draft=${draft}, target=${target}). release-please creates releases that way; a release made by hand does not qualify."
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: ${{ inputs.tag_name }}
+          ref: ${{ steps.release.outputs.sha }}
           persist-credentials: false
 
 

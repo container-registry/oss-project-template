@@ -17,8 +17,8 @@ short version of this in a header comment; this is the map.
 | `welcome.yml` | Greets first-time contributors. | nothing |
 | `apply-settings.yml` | Applies `.github/settings.yml`, and checks for drift weekly. | `SETTINGS_TOKEN` |
 | `release-please.yml` | Opens release pull requests and triggers publishing. | nothing |
-| `release-assets.yml` | Builds, attests and uploads binaries and their SBOM. | nothing |
-| `publish-image.yml` | Builds, pushes, verifies the platform set (`task image:verify`), signs and attests the container image. | nothing for GHCR |
+| `release-assets.yml` | Builds, attests and uploads binaries and their SBOM, from the commit the release tag resolves to. | nothing |
+| `publish-image.yml` | Builds, pushes, verifies the platform set (`task image:verify`), signs and attests the container image, from the commit the release tag resolves to. | nothing for GHCR |
 
 ## Configuration
 
