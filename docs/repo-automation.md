@@ -64,8 +64,9 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
 
 ## Things That Will Bite You
 
-- **The release pull request gets no workflow runs.** GitHub raises no workflow events for a ref pushed with
-  `GITHUB_TOKEN`. See [RELEASES.md](RELEASES.md) before making any check required.
+- **The release pull request's runs wait for approval.** GitHub holds every run on a branch pushed by
+  `github-actions[bot]` at "action required" until a person approves it. See [RELEASES.md](RELEASES.md) before
+  making any check required.
 - **Never require a path-filtered workflow as a status check.** It does not report at all on a pull request that
   misses its filter, and the check waits forever. Require `required-checks` instead.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and

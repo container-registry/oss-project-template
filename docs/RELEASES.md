@@ -26,7 +26,7 @@ merging that publishes a chart whose default image is the new app.
 ## How It Works
 
 1. Pull requests are squash-merged to `main` with a conventional title. The title becomes the commit that release-please evaluates.
-2. A push to `main` opens or updates a `chore: release X.Y.Z` pull request.
+2. A push to `main` opens or updates a `chore: release app X.Y.Z` pull request.
 3. The release pull request updates the manifest, `CHANGELOG.md`, and the generic `version.txt` version file.
 4. Merging that pull request creates the `vX.Y.Z` tag and GitHub Release.
 <!-- pack:chart:start -->
@@ -48,7 +48,7 @@ merging that publishes a chart whose default image is the new app.
 <!-- pack:chart:start -->
 
 The chart line uses the same table with one difference: `chore:` is visible there, as Miscellaneous, and bumps
-the patch version. That is what carries an app release (`chore: release X.Y.Z` touches `Chart.yaml`) into a
+the patch version. That is what carries an app release (`chore: release app X.Y.Z` touches `Chart.yaml`) into a
 chart release. Which line sees a commit is decided by paths, not by scope: the app line ignores `docs/`,
 `.github/`, `.release-please/`, `deploy/` and `taskfile/`, the chart line only sees `deploy/chart/`. A commit touching both opens both
 release pull requests. Scope chart-only pull requests `feat(chart):` or `fix(chart):` and keep them inside
@@ -95,7 +95,9 @@ not, release-please finds no previous release, walks the whole history, and repl
 changelog.
 
 A repository created from this template starts clean: `task bootstrap` resets the manifest, `version.txt` and
-`CHANGELOG.md` to zero, and a templated repository carries no tags, so the first `feat:` produces `v0.1.0`.
+`CHANGELOG.md` to zero, and a templated repository carries no tags, so the first `feat:` produces `v0.1.0`
+because both configs set `initial-version: 0.1.0`. Without that key release-please starts at `1.0.0`: with no
+previous release there is nothing to bump, and the manifest's `0.0.0` is not consulted.
 When adopting this setup into a repository that already has releases, set the manifest to the version of the
 newest existing tag instead, and make sure that tag matches the `vX.Y.Z` scheme; push one at the release
 commit if it does not.
@@ -137,6 +139,8 @@ Each of these cost a debugging session in a repository adopted from this templat
   config files, or changing `pull-request-header`, leaves the open pull request pointing at stale paths and
   the next push to `main` does not touch it. The config sets `always-update: true`, which makes every push
   rewrite the pull request. Keep it.
+- **The first release is `1.0.0` unless `initial-version` says otherwise.** With no tag to bump from,
+  release-please ignores the manifest and uses its default. Both configs set `initial-version: 0.1.0`.
 - **`release-as` in the config is permanent, not one-shot.** It applies to every release until it is removed,
   so the release after the one it was meant for proposes the same version again. Use it for exactly one
   release and remove it in that release's own pull request, or put a `Release-As: X.Y.Z` footer in a commit
@@ -145,7 +149,7 @@ Each of these cost a debugging session in a repository adopted from this templat
   excluded.** One file outside the excluded paths, even a one-line `README.md` edit in an otherwise
   workflow-only commit, pulls the whole commit into the changelog and bumps the version.
 - **A hidden commit type cannot carry a release into another release-please package.** Only relevant with more
-  than one release line: the `chore: release X.Y.Z` commit of one line is a `chore:` commit to the other,
+  than one release line: the `chore: release app X.Y.Z` commit of one line is a `chore:` commit to the other,
   and with `chore` hidden there the second line sees an empty changelog and opens nothing. Make `chore`
   visible in the dependent line's config.
 
@@ -172,17 +176,20 @@ cosign verify <CHART_REPOSITORY>/<name>@<digest> \
 The release notes of every `chart-v*` release carry these commands with the real values.
 
 <!-- pack:chart:end -->
-## The Release Pull Request Gets No Workflow Runs
+## The Release Pull Request's Checks Wait for Approval
 
-GitHub raises no workflow events for a ref pushed with `GITHUB_TOKEN`. release-please opens its
-`chore: release X.Y.Z` pull request with exactly that token, so **that pull request gets zero workflow runs** -
-no CI, no hygiene, no labeler.
+release-please opens its `chore: release app X.Y.Z` pull request with `GITHUB_TOKEN`, so the actor behind the
+push is `github-actions[bot]`. GitHub creates the workflow runs for that pull request but holds every one of
+them at "action required" until a person approves them from the Actions tab or the pull request's checks
+panel. Nothing reports until then: no CI, no hygiene, no labeler. Measured on this repository: every run on a
+release pull request's head sits at `action_required`, and after approval the runs execute like any other
+pull request's (the DCO gate passes because it exempts bot commits).
 
-This matters the moment a branch ruleset requires a status check: the release pull request waits for a context
-that will never be reported and can never be merged. The shipped ruleset in `.github/settings.yml` therefore
-requires a pull request but requires no status checks.
+This matters the moment a branch ruleset requires a status check: the release pull request cannot be merged
+until someone approves its runs, which turns an automated release into two manual steps. The shipped ruleset in
+`.github/settings.yml` therefore requires a pull request but requires no status checks.
 
-To require checks, first make release-please open its pull request as a GitHub App:
+To require checks without the approval step, first make release-please open its pull request as a GitHub App:
 
 ```yaml
 - uses: actions/create-github-app-token@<sha>  # vX.Y.Z
@@ -198,7 +205,8 @@ To require checks, first make release-please open its pull request as a GitHub A
 
 Then require only the aggregate `required-checks` context from `hygiene.yml`. Never require a workflow that has
 a `paths:` or `paths-ignore:` filter directly: it does not report at all on a pull request that misses the
-filter, and the check waits forever.
+filter, and the check waits forever. Approving a held run once is enough to see the release pull request's
+gates pass; it is not a substitute for the App token, because the approval is needed on every release.
 
 Do not work around a blocked release pull request by pushing a tag by hand. The tag and
 `.release-please/manifest-app.json` then disagree permanently, and every later release inherits the mismatch.

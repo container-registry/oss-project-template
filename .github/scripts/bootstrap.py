@@ -237,6 +237,15 @@ def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
             contributing.write_text(pruned, encoding="utf-8")
             print("pruned the vulnerability section from CONTRIBUTING.md")
 
+    # Without the Go pack the merge only tags and releases; the header must not promise an image.
+    config = ROOT / ".release-please/config-app.json"
+    if config.exists() and not dry_run:
+        text = config.read_text(encoding="utf-8")
+        pruned = text.replace("and publishes the image and binaries.", "and creates the GitHub release.")
+        if pruned != text:
+            config.write_text(pruned, encoding="utf-8")
+            print("made the release pull request header describe the tag and release only")
+
     # The jobs that call the workflows just deleted.
     remove_jobs(".github/workflows/release-please.yml",
                 ("publish-release-assets", "publish-image", "document-artifacts"), dry_run)
@@ -389,6 +398,17 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
                 print(f"{'would rewrite' if dry_run else 'rewriting'} {path.relative_to(ROOT)} for {org}/{repo}")
                 if not dry_run:
                     path.write_text(updated, encoding="utf-8")
+
+    for rel in (".release-please/config-app.json", ".release-please/config-chart.json"):
+        cfg = ROOT / rel
+        if not cfg.exists():
+            continue
+        text = cfg.read_text(encoding="utf-8")
+        updated = text.replace("container-registry/oss-project-template", f"{values['ORG_NAME']}/{values['REPO_NAME']}")
+        if updated != text:
+            print(f"{'would rewrite' if dry_run else 'rewriting'} the release doc link in {rel}")
+            if not dry_run:
+                cfg.write_text(updated, encoding="utf-8")
 
     settings = ROOT / ".github/settings.yml"
     if settings.exists():

@@ -66,10 +66,10 @@ Work through it after bootstrap, before the first real pull request.
 
 ## 5. Before making any check required
 
-Read the release-pull-request section in [docs/RELEASES.md](docs/RELEASES.md) first. GitHub raises no workflow
-events for a ref pushed with `GITHUB_TOKEN`, so a required status check blocks every release pull request
-permanently. Require only the aggregate `required-checks` context, and only after release-please opens its pull
-request with a GitHub App token.
+Read the release-pull-request section in [docs/RELEASES.md](docs/RELEASES.md) first. GitHub holds every workflow
+run on a release pull request until a person approves it, because `github-actions[bot]` pushed the branch, so a
+required status check turns each release into a manual approval. Require only the aggregate `required-checks`
+context, and only after release-please opens its pull request with a GitHub App token.
 
 ---
 

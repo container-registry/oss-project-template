@@ -13,7 +13,7 @@
 # Reference: https://docs.github.com/en/rest/repos
 
 repository:
-  # Everything here is PATCHed onto the repository on the first push to main.
+  # Everything here is applied to the repository with a PATCH on the first push to main.
   # Two keys are deliberately absent and must stay absent:
   #   visibility  - a private repository created from this template would
   #                 publish itself, which cannot be undone.
@@ -207,11 +207,10 @@ rulesets:
           require_last_push_approval: false
           required_review_thread_resolution: false
           allowed_merge_methods: [squash]
-      # No required_status_checks, deliberately. GitHub raises no workflow
-      # events for a ref pushed with GITHUB_TOKEN, so the `chore: release`
-      # pull request that release-please opens gets zero runs - and any
-      # required context then blocks it forever. Verified on this repository:
-      # the release pull request had no workflow runs at all.
+      # No required_status_checks, deliberately. GitHub holds every workflow
+      # run on the `chore: release` pull request at "action required" until a
+      # person approves it, because github-actions[bot] pushed the branch, so
+      # a required context turns each release into a manual approval.
       #
       # Two prerequisites before uncommenting the block below:
       #   1. release-please must open its pull request with a GitHub App token

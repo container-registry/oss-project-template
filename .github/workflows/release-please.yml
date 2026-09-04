@@ -13,6 +13,14 @@ on:
 
 permissions: {}
 
+# One fixed group, not keyed on the ref: a workflow_dispatch from any branch
+# still reconciles main, and two parallel runs each opened a release PR.
+# With cancel-in-progress off a newer run replaces a pending one, never a
+# running one; release-please reads full history, so nothing is lost.
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
 jobs:
   release-please:
     runs-on: ubuntu-latest
