@@ -52,8 +52,9 @@ the patch version. That is what carries an app release (`chore: release X.Y.Z` t
 chart release. Which line sees a commit is decided by paths, not by scope: the app line ignores `docs/`,
 `.github/`, `.release-please/`, `deploy/` and `taskfile/`, the chart line only sees `deploy/chart/`. A commit touching both opens both
 release pull requests. Scope chart-only pull requests `feat(chart):` or `fix(chart):` and keep them inside
-`deploy/chart`: one file outside puts the commit in the app changelog and bumps the app version, and the
-`Chart Scope Paths` check in `pr-title.yml` fails such a pull request so it is split rather than retyped.
+`deploy/chart`: one file the app line does not exclude puts the commit in the app changelog and bumps the app
+version, and the `Chart Scope Paths` check in `pr-title.yml` fails such a pull request so it is split rather
+than retyped.
 When `exclude-paths` in `config-app.json` changes, update that check's patterns too.
 <!-- pack:chart:end -->
 

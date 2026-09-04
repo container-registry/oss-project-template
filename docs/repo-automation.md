@@ -70,8 +70,12 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
   misses its filter, and the check waits forever. Require `required-checks` instead.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and
   say so; `repo-lint` fails the build if one ever gains a checkout step.
-- **A `(chart)`-scoped pull request that touches one file outside `deploy/chart` bumps the app version.**
-  release-please filters by path, not by scope. `Chart Scope Paths` fails the pull request; split it.
+<!-- pack:chart:start -->
+- **A `(chart)`-scoped pull request that touches a file outside the app line's excluded paths bumps the app
+  version.** Not anything outside `deploy/chart`: `docs`, `.github`, `.release-please`, `deploy` and `taskfile`
+  are excluded, so it takes a root file such as `Taskfile.yml` or `versions.env`. release-please filters by
+  path, not by scope, and `Chart Scope Paths` fails the pull request; split it.
+<!-- pack:chart:end -->
 - **A `feat:` confined to an excluded path releases nothing.** `exclude-paths` is set to `docs`, `.github`, `.release-please`, `deploy` and `taskfile`,
   and it is evaluated per file: one file outside pulls the whole commit back in.
 - **An open release pull request only refreshes when its body would change.** `always-update: true` in
