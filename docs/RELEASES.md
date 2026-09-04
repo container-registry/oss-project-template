@@ -4,7 +4,7 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 `v*` tag or create a GitHub Release by hand, and never edit `CHANGELOG.md`; release-please owns all three. The
 repository squash-merges, so the pull request title is the commit release-please parses.
 
-Release state is defined by conventional commits on `main`, the config and manifest in `.release-please/`, `version.txt` and `CHANGELOG.md`. The directory is itself in `exclude-paths`, so editing release configuration never cuts a release, and a second release line can exclude it the same way.
+Release state is defined by conventional commits on `main`, the config and manifest in `.release-please/`, `version.txt` and `CHANGELOG.md`. The directory is itself in `exclude-paths`, so a commit confined to it does not contribute to a release, and a second release line can exclude it the same way.
 
 ## How It Works
 
