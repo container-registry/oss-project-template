@@ -373,6 +373,10 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
         repo = re.sub(r"[^a-z0-9]+", "-", values["REPO_NAME"].lower()).strip("-")
         if not repo:
             sys.exit(f"error: REPO_NAME {values['REPO_NAME']!r} has no character a chart name can use")
+        # A DNS-1123 label; the chart name also becomes the container name,
+        # which the fullname helper's 63-character truncation does not cover.
+        if len(repo) > 63:
+            sys.exit(f"error: REPO_NAME {values['REPO_NAME']!r} normalises to {len(repo)} characters; a chart name has at most 63")
         # The owner appears on its own next to a `{{ .Name }}` in the helm-docs
         # template, so it cannot be rewritten as part of the owner/name pair.
         for path in sorted(chart.rglob("*")):
