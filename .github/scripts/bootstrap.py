@@ -237,6 +237,16 @@ def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
             contributing.write_text(pruned, encoding="utf-8")
             print("pruned the vulnerability section from CONTRIBUTING.md")
 
+    # The release pull request header promises the image and binaries the Go
+    # pack publishes; without the pack the merge only tags and releases.
+    config = ROOT / ".release-please/config-app.json"
+    if config.exists() and not dry_run:
+        text = config.read_text(encoding="utf-8")
+        pruned = text.replace("and publishes the image and binaries.", "and creates the GitHub release.")
+        if pruned != text:
+            config.write_text(pruned, encoding="utf-8")
+            print("made the release pull request header describe the tag and release only")
+
     # The jobs that call the workflows just deleted.
     remove_jobs(".github/workflows/release-please.yml",
                 ("publish-release-assets", "publish-image", "document-artifacts"), dry_run)
