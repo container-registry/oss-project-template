@@ -17,7 +17,9 @@ includes:
     dir: .
 
 vars:
-  # The platform set publish-image.yml builds and image:verify asserts.
+  # The only definition of the platform set. publish-image.yml reads it back
+  # through `task image:platforms` for the build and lets image:verify default
+  # to it for the assertion, so there is no second copy to drift from.
   IMAGE_PLATFORMS: linux/amd64,linux/arm64
   RELEASE_BINARY: '{{.RELEASE_BINARY | default "app"}}'
   RELEASE_DIST: '{{.RELEASE_DIST | default "dist"}}'
@@ -176,6 +178,13 @@ tasks:
         --build-arg VERSION="$(cat version.txt)"
         -t "{{.RELEASE_BINARY}}:$(cat version.txt)" .
 
+  image:platforms:
+    desc: Print the platform list the image build and image:verify share
+    # Nothing but the list, so a workflow can capture it into GITHUB_OUTPUT.
+    silent: true
+    cmds:
+      - printf '%s\n' '{{.IMAGE_PLATFORMS}}'
+
   image:verify:
     desc: Verify a pushed image index carries exactly IMAGE_PLATFORMS (IMAGE_REF=name@sha256:... or name:tag)
     status: ['! test -f Dockerfile']
@@ -243,9 +252,12 @@ tasks:
           # Keyed like a buildx platform string, os/arch with the variant when
           # there is one, so linux/arm/v6 and linux/arm/v7 are two platforms.
           # buildx records provenance and SBOM attestations as unknown/unknown
-          # entries of the index; they are attachments, not platforms.
+          # entries of the index; they are attachments, not platforms. An entry
+          # carrying no usable platform is folded into unknown/unknown as well,
+          # so it is ignored like an attestation rather than reported as an
+          # unexpected `?/?` manifest.
           actual=$(printf '%s' "${raw}" \
-            | jq -r '.manifests[]? | .platform // {} | "\(.os // "?")/\(.architecture // "?")\(if .variant then "/" + .variant else "" end)" | select(. != "unknown/unknown")' \
+            | jq -r '.manifests[]? | .platform // {} | (if (.os and .architecture) then "\(.os)/\(.architecture)\(if .variant then "/" + .variant else "" end)" else "unknown/unknown" end) | select(. != "unknown/unknown")' \
             | normalize | sort)
           if [ -z "${actual}" ]; then
             echo "No platform manifests in ${reference}" >&2
