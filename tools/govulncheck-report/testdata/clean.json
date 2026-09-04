@@ -1,0 +1,54 @@
+{
+  "config": {
+    "protocol_version": "v1.0.0",
+    "scanner_name": "govulncheck",
+    "scanner_version": "v1.4.0",
+    "db": "https://vuln.go.dev",
+    "db_last_modified": "2026-08-14T16:22:54Z",
+    "go_version": "go1.26.6",
+    "scan_level": "symbol",
+    "scan_mode": "source"
+  }
+}
+{
+  "osv": {
+    "id": "GO-2022-0322",
+    "summary": "Uncontrolled resource consumption in github.com/prometheus/client_golang",
+    "affected": [
+      {
+        "package": {
+          "name": "github.com/prometheus/client_golang",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2021-0067",
+    "summary": "Panic when opening archives in archive/zip",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2021-0069",
+    "summary": "Panic during division of very large numbers in math/big",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}

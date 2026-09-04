@@ -156,8 +156,11 @@ jobs:
     name: Vulnerability Check
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # pull-requests: write is used only by the sticky-comment step. It covers
+    # issue comments on pull requests, so issues: write is not needed.
     permissions:
       contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -177,8 +180,44 @@ jobs:
 
       - uses: ./.github/actions/setup
         if: steps.detect.outputs.go == 'true'
-      - if: steps.detect.outputs.go == 'true'
-        run: task vuln-check
+
+      # Findings are a result, not a scan failure: the task captures the
+      # govulncheck exit code instead of propagating it and exposes the counts
+      # as step outputs. "Enforce scanner health" below turns a broken scan
+      # into a job failure. Unfixable advisories therefore no longer keep
+      # every pull request and the weekly run red.
+      - name: Run govulncheck and render reports
+        id: report
+        if: steps.detect.outputs.go == 'true'
+        run: task vuln-report
+
+      # Fork pull requests get a read-only token, so commenting would only
+      # produce a confusing failure. A scan that produced no usable report
+      # counts zero fixable findings, which would delete a comment that is
+      # still accurate, so that case is skipped too.
+      - name: Update pull request comment
+        if: >-
+          steps.detect.outputs.go == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.report.outputs.scanner-error != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          FIXABLE_COUNT: ${{ steps.report.outputs.fixable-count }}
+        run: .github/scripts/vulnerability-comment.sh
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        if: always() && steps.detect.outputs.go == 'true'
+        with:
+          name: vulnerability-check
+          path: vulnerability-check/
+          if-no-files-found: warn
+
+      - name: Enforce scanner health
+        if: steps.detect.outputs.go == 'true'
+        run: task vuln-report:check
 
   tidy:
     name: Tidy

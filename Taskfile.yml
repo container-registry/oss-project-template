@@ -270,10 +270,66 @@ tasks:
         silent: true
 
   vuln-check:
-    desc: Check dependencies for known vulnerabilities
+    desc: Check dependencies for known vulnerabilities (fails on any finding; CI uses vuln-report)
     status: ['! test -f go.mod']
     cmds:
       - go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+
+  vuln-report:
+    desc: Scan with govulncheck and render markdown reports into VULN_DIR (what CI runs)
+    status: ['! test -f go.mod']
+    vars:
+      VULN_DIR: '{{.VULN_DIR | default "vulnerability-check"}}'
+    cmds:
+      - mkdir -p "{{.VULN_DIR}}"
+      # Findings are a result, not a failure, so the exit code is captured
+      # rather than propagated; `vuln-report:check` turns a scan that could
+      # not produce a usable report into a job failure.
+      - |
+        set +e
+        go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" -format json ./... \
+          > "{{.VULN_DIR}}/govulncheck.json" 2> "{{.VULN_DIR}}/govulncheck.stderr"
+        echo $? > "{{.VULN_DIR}}/govulncheck.exit"
+      - task: vuln-report:render
+        vars: {VULN_DIR: '{{.VULN_DIR}}', MODE: full, NAME: report}
+      # The pull request comment lists only what a reviewer can act on. It must
+      # not duplicate the full report in the job summary or its counts.
+      - task: vuln-report:render
+        vars:
+          VULN_DIR: '{{.VULN_DIR}}'
+          MODE: fixable
+          NAME: comment
+          EXTRA_FLAGS: "-step-summary=false -github-output=false"
+      - cmd: echo "Reports written to {{.VULN_DIR}}/ (report.md, comment.md, report-summary.json)"
+        silent: true
+
+  vuln-report:render:
+    internal: true
+    vars:
+      MAX_ROWS: '{{.MAX_ROWS | default "50"}}'
+    cmd: >-
+      go run ./tools/govulncheck-report
+      -json "{{.VULN_DIR}}/govulncheck.json"
+      -stderr "{{.VULN_DIR}}/govulncheck.stderr"
+      -exit-file "{{.VULN_DIR}}/govulncheck.exit"
+      -mode {{.MODE}}
+      -max-rows {{.MAX_ROWS}}
+      -out "{{.VULN_DIR}}/{{.NAME}}.md"
+      -summary "{{.VULN_DIR}}/{{.NAME}}-summary.json"
+      {{.EXTRA_FLAGS}}
+
+  vuln-report:check:
+    desc: Fail if the last vuln-report run could not produce a usable govulncheck report
+    status: ['! test -f go.mod']
+    vars:
+      VULN_DIR: '{{.VULN_DIR | default "vulnerability-check"}}'
+    cmd: >-
+      go run ./tools/govulncheck-report
+      -json "{{.VULN_DIR}}/govulncheck.json"
+      -stderr "{{.VULN_DIR}}/govulncheck.stderr"
+      -exit-file "{{.VULN_DIR}}/govulncheck.exit"
+      -out /dev/null -step-summary=false -github-output=false
+      -fail-on-scanner-error
 
   license-check:
     desc: Check dependency licences against the policy
@@ -383,7 +439,7 @@ tasks:
   clean:
     desc: Remove build output
     cmds:
-      - rm -rf dist bin coverage.out licenses.csv
+      - rm -rf dist bin coverage.out licenses.csv vulnerability-check
 
   info:
     desc: Show the pinned tool versions

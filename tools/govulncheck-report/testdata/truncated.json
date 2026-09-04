@@ -1,0 +1,211 @@
+{
+  "config": {
+    "protocol_version": "v1.0.0",
+    "scanner_name": "govulncheck",
+    "scanner_version": "v1.4.0",
+    "db": "https://vuln.go.dev",
+    "db_last_modified": "2026-08-14T16:22:54Z",
+    "go_version": "go1.26.4",
+    "scan_level": "symbol",
+    "scan_mode": "source"
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-4970",
+    "summary": "Root escape via symlink plus trailing slash in os",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-5026",
+    "summary": "Invoking failure to reject ASCII-only Punycode-encoded labels in golang.org/x/net/idna",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      },
+      {
+        "package": {
+          "name": "golang.org/x/net",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-5856",
+    "summary": "Invoking Encrypted Client Hello privacy leak in crypto/tls",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-5942",
+    "summary": "Parsing an invalid SVCB or HTTPS RR can panic in golang.org/x/net/dns/dnsmessage",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      },
+      {
+        "package": {
+          "name": "golang.org/x/net",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-5972",
+    "summary": "Enforce maximum recursion depth in encoding/asn1",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-6088",
+    "summary": "Add recursion depth guard during decode in encoding/xml",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-6089",
+    "summary": "Apply ReadHeaderTimeout when doing unencrypted HTTP/2 check in net/http",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-6090",
+    "summary": "Limit handshake messages we are willing to accept post-handshake in crypto/tls",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-6091",
+    "summary": "Fix Javascript regexp context tracking in html/template",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-6218",
+    "summary": "Avoid quadratic complexity in resolvePath in net/url",
+    "affected": [
+      {
+        "package": {
+          "name": "stdlib",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2020-0015",
+    "summary": "Infinite loop when decoding some inputs in golang.org/x/text",
+    "affected": [
+      {
+        "package": {
+          "name": "golang.org/x/text",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2021-0113",
+    "summary": "Out-of-bounds read in golang.org/x/text/language",
+    "affected": [
+      {
+        "package": {
+          "name": "golang.org/x/text",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2022-1059",
+    "summary": "Denial of service via crafted Accept-Language header in golang.org/x/text/language",
+    "affected": [
+      {
+        "package": {
+          "name": "golang.org/x/text",
+          "ecosystem": "Go"
+        }
+      }
+    ]
+  }
+}
+{
+  "osv": {
+    "id": "GO-2026-5970",
+    "summary": "Infinite loop on invalid input in golang.org/x/text",
+    "affected":

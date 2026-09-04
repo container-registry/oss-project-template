@@ -13,6 +13,8 @@ settings.json
 coverage.out
 coverage.txt
 licenses.csv
+# govulncheck reports (task vuln-report)
+vulnerability-check/
 
 # Local tool and editor state
 .task/
