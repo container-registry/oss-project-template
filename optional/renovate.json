@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "//": "Two ways to use this. (1) Replace Dependabot: move it to the repository root and delete .github/dependabot.yml; running both on the same ecosystem produces duplicate pull requests. (2) Complement Dependabot: move it to the root, keep dependabot.yml, and set \"enabledManagers\": [\"custom.regex\"] so Renovate touches only versions.env, which Dependabot cannot read. Renovate needs its GitHub App installed. Either way, a bump of a checksum-pinned tool (TASK, TYPOS, ACTIONLINT) fails where that tool is installed until the *_SHA256_* lines are updated in the Renovate pull request; that failure is the reminder.",
+  "description": "Two ways to use this. (1) Replace Dependabot: move it to the repository root and delete .github/dependabot.yml; running both on the same ecosystem produces duplicate pull requests. (2) Complement Dependabot: move it to the root, keep dependabot.yml, and set \"enabledManagers\": [\"custom.regex\"] so Renovate touches only versions.env and the base image ARG defaults in the Dockerfile, neither of which Dependabot updates. That does not collide with Dependabot's docker ecosystem, which owns the builder `FROM` line. Renovate needs its GitHub App installed. Either way, a bump of a checksum-pinned tool (TASK, TYPOS, ACTIONLINT) fails where that tool is installed until the *_SHA256_* lines are updated in the Renovate pull request; that failure is the reminder.",
   "extends": [
     "config:recommended",
     ":semanticCommits",
@@ -59,6 +59,19 @@
         "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+depName=(?<depName>[^\\s]+?)(?:\\s+versioning=(?<versioning>[^\\s]+?))?(?:\\s+extractVersion=(?<extractVersion>[^\\s]+?))?\\s*\\n[A-Z0-9_]+=v?(?<currentValue>[^\\s]+)"
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+    {
+      "customType": "regex",
+      "description": "The container base image, which the annotated manager above cannot handle: its currentValue is a whole reference rather than a version. `nonroot` is a moving tag, so the part that changes is the digest, and capturing currentDigest is what makes Renovate raise a digest update. versions.env and the Dockerfile ARG defaults hold the same pair and repo-lint fails the build if they drift, so both files are matched and land in one pull request. The two lines are matched as a unit and must stay adjacent.",
+      "managerFilePatterns": [
+        "/(^|/)versions\\.env$/",
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "BASE_IMAGE=(?<depName>[^\\s]+?):(?<currentValue>[^\\s:@/]+)\\n(?:ARG )?BASE_IMAGE_DIGEST=(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "docker"
     }
   ]
 }
