@@ -58,7 +58,7 @@ tasks:
         upstream="${CT_CHART_YAML_SCHEMA%/*}/lintconf.yaml"
       else
         cache="${TMPDIR:-/tmp}/ct-{{.CT_VERSION}}"
-        if [ ! -f "${cache}/etc/lintconf.yaml" ]; then
+        if [ ! -f "${cache}/lintconf.yaml" ]; then
           mkdir -p "${cache}"
           curl -fsSL "https://github.com/helm/chart-testing/releases/download/v{{.CT_VERSION}}/chart-testing_{{.CT_VERSION}}_linux_amd64.tar.gz" \
             -o "${work}/ct.tar.gz"
@@ -67,9 +67,13 @@ tasks:
           else
             echo "{{.CT_SHA256_LINUX_AMD64}}  ${work}/ct.tar.gz" | shasum -a 256 -c -
           fi
-          tar -xzf "${work}/ct.tar.gz" -C "${cache}" etc/lintconf.yaml
+          # Extract to a private name and rename into place: two concurrent
+          # runs would otherwise let one truncate the file the other is
+          # reading, which reads as drift.
+          tar -xzOf "${work}/ct.tar.gz" etc/lintconf.yaml > "${cache}/.lintconf.$$"
+          mv -f "${cache}/.lintconf.$$" "${cache}/lintconf.yaml"
         fi
-        upstream="${cache}/etc/lintconf.yaml"
+        upstream="${cache}/lintconf.yaml"
       fi
 
       # Comment-only lines are the fork's own header; inline comments are
