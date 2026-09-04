@@ -27,7 +27,7 @@ commit-msg:
         msg=$(head -1 {1})
         # Same pattern as `task commit-lint` and the pr-title workflow.
         pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+"
-        if ! echo "$msg" | grep -Eq "$pattern"; then
+        if ! echo "$msg" | grep -E "$pattern" >/dev/null; then
           echo "ERROR: Commit message must follow Conventional Commits format"
           echo "  Format: <type>[optional scope]: <description>"
           echo "  Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
@@ -40,7 +40,7 @@ commit-msg:
       run: |
         # Same extraction as dco.yml and `task dco-check`; stripspace honours core.commentChar.
         trailers=$(git stripspace --strip-comments < {1} | awk '/^[[:space:]]*$/ {blank=1; next} {if (blank) {block=""; blank=0} block = block $0 "\n"} END {printf "%s", block}')
-        if ! printf '%s' "$trailers" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
+        if ! printf '%s' "$trailers" | grep -E "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" >/dev/null; then
           echo "ERROR: Missing DCO sign-off with a name and an address. Use 'git commit -s'"
           exit 1
         fi

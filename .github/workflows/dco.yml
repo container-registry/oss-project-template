@@ -65,7 +65,7 @@ jobs:
             message=$(printf '%s' "${entry#*:}" | base64 -d)
             # Final paragraph only: a sign-off quoted from an upstream body is not this committer's.
             trailers=$(printf '%s\n' "$message" | awk '/^[[:space:]]*$/ {blank=1; next} {if (blank) {block=""; blank=0} block = block $0 "\n"} END {printf "%s", block}')
-            if ! printf '%s' "$trailers" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
+            if ! printf '%s' "$trailers" | grep -E "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" >/dev/null; then
               echo "::error::Missing DCO sign-off: $sha $(printf '%s\n' "$message" | head -1)"
               missing=1
             fi

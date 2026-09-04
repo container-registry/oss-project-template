@@ -113,7 +113,7 @@ tasks:
         pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?(!)?: .+"
         for commit in $(git log --format=%H "${base}..HEAD"); do
           msg=$(git log -1 --format=%s "$commit")
-          if ! echo "$msg" | grep -Eq "$pattern"; then
+          if ! echo "$msg" | grep -E "$pattern" >/dev/null; then
             echo "ERROR: Commit $commit does not follow Conventional Commits"
             echo "  Message: $msg"
             echo "  Format: <type>[scope]: <description>"
@@ -142,7 +142,7 @@ tasks:
         for commit in $(git log --no-merges --format=%H "${base}..HEAD"); do
           # Same extraction as dco.yml and lefthook.yml; keep the three in sync.
           trailers=$(git log -1 --format=%B "$commit" | awk '/^[[:space:]]*$/ {blank=1; next} {if (blank) {block=""; blank=0} block = block $0 "\n"} END {printf "%s", block}')
-          if ! printf '%s' "$trailers" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
+          if ! printf '%s' "$trailers" | grep -E "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" >/dev/null; then
             echo "ERROR: Commit $commit missing DCO sign-off"
             echo "Fix with: git commit --amend -s"
             exit 1
