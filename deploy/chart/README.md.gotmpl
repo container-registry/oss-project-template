@@ -6,12 +6,17 @@
 
 ## Install
 
+The chart is published as an OCI artifact. Where it is published is a property
+of the repository that ships it, not of the chart, so substitute the repository
+path for `CHART_REPOSITORY` below. Every chart release prints the exact command
+in its release notes.
+
 {{/* The markers let the chart release PR restamp the version below, since
 release-please rewrites Chart.yaml without re-running helm-docs. */}}
 <!-- x-release-please-start-version -->
 ```sh
 helm install {{ .Name }} \
-  oci://ttl.sh/container-registry/{{ .Name }}/charts/{{ .Name }} \
+  oci://CHART_REPOSITORY/{{ .Name }} \
   --version {{ .Version }}
 ```
 <!-- x-release-please-end -->
@@ -23,15 +28,20 @@ different application release.
 
 Every released chart is signed keyless with Sigstore from the release workflow,
 so there is no key to distribute: the signing identity is the workflow itself.
+Substitute the repository path for `CHART_REPOSITORY` and the owning repository
+for `OWNER/REPO`; the release notes carry both, filled in, next to the digest
+that was signed.
 
 <!-- x-release-please-start-version -->
 ```sh
-cosign verify \
-  --certificate-identity-regexp '^https://github\.com/container-registry/{{ .Name }}/\.github/workflows/publish-chart\.yml@refs/heads/main$' \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ttl.sh/container-registry/{{ .Name }}/charts/{{ .Name }}:{{ .Version }}
+cosign verify CHART_REPOSITORY/{{ .Name }}:{{ .Version }} \
+  --certificate-identity-regexp '^https://github\.com/OWNER/REPO/\.github/workflows/publish-chart\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 <!-- x-release-please-end -->
+
+Verify by digest rather than by tag when it matters: a tag can be repointed at
+a different artifact after the signature was made.
 
 ## What the chart does
 
