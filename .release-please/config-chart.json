@@ -1,10 +1,11 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
   "pull-request-header": "Chart release. Merging tags `chart-vX.Y.Z` and publishes the chart.",
-  "pull-request-footer": "Squash-merge to release. `docs/RELEASES.md` explains the two release lines and what the merge triggers.",
+  "pull-request-footer": "Squash-merge to release. See [docs/RELEASES.md](https://github.com/container-registry/oss-project-template/blob/main/docs/RELEASES.md).",
   "pull-request-title-pattern": "chore: release chart ${version}",
   "label": "chart-release: pending",
   "release-label": "chart-release: tagged",
+  "initial-version": "0.1.0",
   "include-v-in-tag": true,
   "always-update": true,
   "bump-minor-pre-major": true,

@@ -390,6 +390,18 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
                 if not dry_run:
                     path.write_text(updated, encoding="utf-8")
 
+    # The release pull request footers link to this repository's release doc.
+    for rel in (".release-please/config-app.json", ".release-please/config-chart.json"):
+        cfg = ROOT / rel
+        if not cfg.exists():
+            continue
+        text = cfg.read_text(encoding="utf-8")
+        updated = text.replace("container-registry/oss-project-template", f"{values['ORG_NAME']}/{values['REPO_NAME']}")
+        if updated != text:
+            print(f"{'would rewrite' if dry_run else 'rewriting'} the release doc link in {rel}")
+            if not dry_run:
+                cfg.write_text(updated, encoding="utf-8")
+
     settings = ROOT / ".github/settings.yml"
     if settings.exists():
         text = settings.read_text(encoding="utf-8")
