@@ -281,7 +281,7 @@ tasks:
     vars:
       VULN_DIR: '{{.VULN_DIR | default "vulnerability-check"}}'
     cmds:
-      - mkdir -p {{.VULN_DIR}}
+      - mkdir -p "{{.VULN_DIR}}"
       # Findings are a result, not a failure, so the exit code is captured
       # rather than propagated; `vuln-report:check` turns a scan that could
       # not produce a usable report into a job failure.

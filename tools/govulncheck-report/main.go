@@ -60,7 +60,9 @@ func run() error {
 	markdown := renderMarkdown(summary, *mode, readOptional(*stderrPath), *maxRows)
 
 	if *outPath == "" {
-		fmt.Print(markdown)
+		if _, err := fmt.Print(markdown); err != nil {
+			return fmt.Errorf("write markdown report: %w", err)
+		}
 	} else if err := os.WriteFile(*outPath, []byte(markdown), 0o644); err != nil {
 		return fmt.Errorf("write markdown report: %w", err)
 	}
