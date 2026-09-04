@@ -15,6 +15,7 @@ coverage.txt
 licenses.csv
 # govulncheck reports (task vuln-report)
 vulnerability-check/
+*.sarif
 
 # Local tool and editor state
 .task/

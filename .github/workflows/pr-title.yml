@@ -30,8 +30,11 @@ jobs:
     timeout-minutes: 5
     permissions:
       pull-requests: read
+    outputs:
+      scope: ${{ steps.lint.outputs.scope }}
     steps:
       - uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50  # v6.1.1
+        id: lint
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -51,3 +54,43 @@ jobs:
           subjectPattern: ^.{1,100}$
           subjectPatternError: |
             Subject must be 100 characters or less.
+
+  # release-please has no scope filter and drops a commit from the app line
+  # only when every file it touches is under exclude-paths. A (chart)-scoped
+  # pull request that also edits one root file therefore lands in the app
+  # changelog and bumps the app version. The negated patterns mirror
+  # exclude-paths in .release-please/config-app.json plus the chart's own
+  # tree; keep them in sync. Gated on the scope the lint job parsed, not on a
+  # title substring, so subject text mentioning "(chart):" cannot trigger it.
+  # dorny/paths-filter lists the changed files through the API and needs no
+  # checkout, which is what keeps this safe under pull_request_target.
+  chart-scope-paths:
+    name: Chart Scope Paths
+    needs: lint
+    if: needs.lint.outputs.scope == 'chart'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d  # v4.0.3
+        id: filter
+        with:
+          predicate-quantifier: some-with-excludes
+          list-files: shell
+          filters: |
+            app:
+              - '**'
+              - '!.github/**'
+              - '!docs/**'
+              - '!deploy/**'
+              - '!taskfile/**'
+              - '!.release-please/**'
+
+      - name: Fail on app-release paths
+        if: steps.filter.outputs.app == 'true'
+        env:
+          FILES: ${{ steps.filter.outputs.app_files }}
+        run: |
+          echo "::error::A (chart)-scoped pull request may only touch paths the app release line excludes. Offending: ${FILES}"
+          exit 1

@@ -1,25 +1,24 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "pull-request-header": "Release. Merging this pull request tags `vX.Y.Z` and creates the GitHub release.",
-  "pull-request-footer": "Squash-merge to release. `docs/RELEASES.md` explains the version rules and what the merge triggers.",
-  "pull-request-title-pattern": "chore: release ${version}",
-  "release-type": "simple",
-  "always-update": true,
+  "pull-request-header": "Chart release. Merging tags `chart-vX.Y.Z` and publishes the chart.",
+  "pull-request-footer": "Squash-merge to release. `docs/RELEASES.md` explains the two release lines and what the merge triggers.",
+  "pull-request-title-pattern": "chore: release chart ${version}",
+  "label": "chart-release: pending",
+  "release-label": "chart-release: tagged",
   "include-v-in-tag": true,
+  "always-update": true,
   "bump-minor-pre-major": true,
-  "exclude-paths": [
-    "docs",
-    ".github",
-    ".release-please",
-    "deploy",
-    "taskfile"
-  ],
+  "tag-separator": "-",
   "packages": {
-    ".": {
+    "deploy/chart": {
+      "release-type": "helm",
+      "component": "chart",
+      "include-component-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
           "type": "generic",
-          "path": "deploy/chart/Chart.yaml"
+          "path": "README.md"
         }
       ]
     }
@@ -50,6 +49,10 @@
       "section": "Code Refactoring"
     },
     {
+      "type": "chore",
+      "section": "Miscellaneous"
+    },
+    {
       "type": "test",
       "section": "Tests",
       "hidden": true
@@ -57,11 +60,6 @@
     {
       "type": "style",
       "section": "Styles",
-      "hidden": true
-    },
-    {
-      "type": "chore",
-      "section": "Miscellaneous",
       "hidden": true
     },
     {

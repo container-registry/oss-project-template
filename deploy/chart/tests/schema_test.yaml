@@ -1,0 +1,18 @@
+---
+suite: values schema
+release:
+  name: t
+templates:
+  - deployment.yaml
+tests:
+  - it: rejects an unknown top-level key
+    set:
+      replicas: 3
+    asserts:
+      - failedTemplate: {}
+
+  - it: rejects an invalid pull policy
+    set:
+      image.pullPolicy: Sometimes
+    asserts:
+      - failedTemplate: {}

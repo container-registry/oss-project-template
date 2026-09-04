@@ -1,0 +1,21 @@
+# Not chart content. Everything else in this directory ships in the package.
+.DS_Store
+.git/
+.gitignore
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.idea/
+.vscode/
+.claude/
+# Documentation source; README.md is generated from it
+README.md.gotmpl
+# Artifact Hub repository metadata, pushed as a separate OCI artifact
+artifacthub-repo.yml
+# Testing and CI scenarios
+tests/
+ci/
+# Scanner config used by the CI gate
+.trivyignore

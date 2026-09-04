@@ -18,6 +18,13 @@ component/ci:
           - 'lefthook.yml'
 
 # Dependencies
+component/chart:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'deploy/chart/**'
+          - 'taskfile/helm.yml'
+          - 'taskfile/ct-lintconf.yaml'
+
 dependencies:
   - changed-files:
       - any-glob-to-any-file:

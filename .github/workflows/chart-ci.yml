@@ -1,0 +1,177 @@
+---
+name: Chart CI
+
+# What: Lints, renders, unit-tests, scans and dry-run packages the Helm chart.
+# Fires on: pull request or push to main that touches the chart or its tooling.
+# Needs: nothing. Tool versions come from versions.env.
+# Safe to delete if: the project ships no chart. `task bootstrap --chart=none` removes the whole pack.
+#
+# Path-filtered, so never make it a required status check: it does not report
+# on a pull request that misses the filter. hygiene.yml's required-checks is
+# the only context meant to be required.
+
+on:
+  pull_request:
+    paths:
+      - deploy/chart/**
+      - Taskfile.yml
+      - taskfile/helm.yml
+      - taskfile/ct-lintconf.yaml
+      - versions.env
+      - .github/workflows/chart-ci.yml
+      - .github/actions/setup/**
+      - .github/scripts/chart-annotate-images.sh
+  push:
+    branches: [main]
+    paths:
+      - deploy/chart/**
+      - Taskfile.yml
+      - taskfile/helm.yml
+      - taskfile/ct-lintconf.yaml
+      - versions.env
+      - .github/workflows/chart-ci.yml
+      - .github/actions/setup/**
+      - .github/scripts/chart-annotate-images.sh
+
+permissions: {}
+
+concurrency:
+  group: chart-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chart-quality:
+    name: Chart Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      # The chart's Trivy SARIF goes to the Security tab. On a private
+      # repository the upload also needs actions: read.
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Load version pins
+        # Helm homes under the runner temp, which is always writable, rather
+        # than a possibly root-owned ~/.cache.
+        run: |
+          grep -E '^[A-Z_0-9]+=' versions.env >> "$GITHUB_ENV"
+          {
+            echo "HELM_CACHE_HOME=${RUNNER_TEMP}/helm/cache"
+            echo "HELM_CONFIG_HOME=${RUNNER_TEMP}/helm/config"
+            echo "HELM_DATA_HOME=${RUNNER_TEMP}/helm/data"
+          } >> "$GITHUB_ENV"
+
+      - uses: ./.github/actions/setup
+        with:
+          go: "false"
+
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310  # v5.0.1
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install helm-unittest
+        # --verify=false: Helm 4 verifies plugin provenance by default and
+        # git-sourced plugins ship none.
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version "${HELM_UNITTEST_VERSION}" --verify=false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install chart tools
+        # Binaries rather than `docker run -v`: a bind mount resolves on the
+        # Docker host, which is not the runner workspace when the daemon is
+        # remote. Every archive is verified against the sha256 committed in
+        # versions.env, the same way hygiene.yml installs typos.
+        run: |
+          set -euo pipefail
+          if [ "$(uname -m)" != "x86_64" ]; then
+            echo "::error::the committed checksums are for x86_64 and this runner is $(uname -m)"
+            exit 1
+          fi
+          bin="${RUNNER_TEMP}/bin"
+          mkdir -p "${bin}" "${RUNNER_TEMP}/dl"
+          cd "${RUNNER_TEMP}/dl"
+
+          fetch() {
+            # $1 name, $2 url, $3 sha256, $4 member to extract
+            curl -fsSL "$2" -o "$1.tar.gz"
+            echo "$3  $1.tar.gz" | sha256sum -c -
+            tar -xzf "$1.tar.gz" -C "${bin}" "$4"
+          }
+          fetch helm-docs "https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_Linux_x86_64.tar.gz" "${HELM_DOCS_SHA256_LINUX_AMD64}" helm-docs
+          fetch kube-linter "https://github.com/stackrox/kube-linter/releases/download/v${KUBE_LINTER_VERSION}/kube-linter-linux.tar.gz" "${KUBE_LINTER_SHA256_LINUX_AMD64}" kube-linter
+          fetch ah "https://github.com/artifacthub/hub/releases/download/v${AH_VERSION}/ah_${AH_VERSION}_linux_amd64.tar.gz" "${AH_SHA256_LINUX_AMD64}" ah
+          fetch trivy "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" "${TRIVY_SHA256_LINUX_AMD64}" trivy
+
+          # chart-testing ships its schema and lint config next to the binary;
+          # its lint step shells out to yamale and yamllint.
+          ct_dir="${RUNNER_TEMP}/ct"
+          mkdir -p "${ct_dir}"
+          curl -fsSL "https://github.com/helm/chart-testing/releases/download/v${CT_VERSION}/chart-testing_${CT_VERSION}_linux_amd64.tar.gz" -o ct.tar.gz
+          echo "${CT_SHA256_LINUX_AMD64}  ct.tar.gz" | sha256sum -c -
+          tar -xzf ct.tar.gz -C "${ct_dir}"
+          mv "${ct_dir}/ct" "${bin}/ct"
+          {
+            echo "CT_LINT_CONF=${GITHUB_WORKSPACE}/taskfile/ct-lintconf.yaml"
+            echo "CT_CHART_YAML_SCHEMA=${ct_dir}/etc/chart_schema.yaml"
+          } >> "$GITHUB_ENV"
+          # PIP_BREAK_SYSTEM_PACKAGES: Debian's PEP 668 guard refuses --user
+          # installs; new pip honours it, old pip ignores it, and the runner
+          # is ephemeral either way.
+          PIP_BREAK_SYSTEM_PACKAGES=1 python3 -m pip install --user --quiet --disable-pip-version-check \
+            "yamale==${YAMALE_VERSION}" "yamllint==${YAMLLINT_VERSION}" "pyyaml==${PYYAML_VERSION}"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "${bin}" >> "$GITHUB_PATH"
+
+      # helm lint, ct lint, kube-linter, Artifact Hub metadata, values schema
+      - name: Lint
+        run: task helm:lint
+
+      - name: Render default values
+        run: task helm:template
+
+      - name: Unit tests
+        run: task helm:unittest
+
+      # Two client-side renders must match exactly. This is what Argo CD does
+      # on every sync, and any difference is perpetual drift.
+      - name: GitOps determinism
+        run: task helm:gitops-determinism
+
+      - name: Chart README in sync with values.yaml
+        run: task helm:docs:check
+
+      - name: Trivy misconfiguration scan
+        run: task helm:trivy
+
+      # Findings below the HIGH/CRITICAL gate still reach the Security tab.
+      - name: Trivy SARIF report
+        if: always()
+        run: task helm:trivy:report
+
+      # A pull request from a fork gets a read-only token whatever this job
+      # asks for, so uploading would fail the gate for a contributor who
+      # cannot fix it. Dependabot is not in that class: its runs are
+      # fork-like, but the permissions key still raises their token.
+      # Pushes to main upload too; that is what feeds default-branch code
+      # scanning.
+      - name: Upload Trivy SARIF
+        if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
+        with:
+          sarif_file: trivy-chart.sarif
+          category: helm-chart
+
+      # Everything the release job does before it talks to the registry, so
+      # the packaging path is exercised on every chart PR rather than first on
+      # release day.
+      - name: Release packaging dry run
+        env:
+          CHART_REPOSITORY: ${{ vars.CHART_REPOSITORY || format('ttl.sh/{0}/charts', github.repository) }}
+        run: task helm:release:dry-run

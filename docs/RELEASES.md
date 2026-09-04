@@ -6,12 +6,37 @@ repository squash-merges, so the pull request title is the commit release-please
 
 Release state is defined by conventional commits on `main`, the config and manifest in `.release-please/`, `version.txt` and `CHANGELOG.md`. The directory is itself in `exclude-paths`, so a commit confined to it does not contribute to a release, and a second release line can exclude it the same way.
 
+<!-- pack:chart:start -->
+There are **two independent release lines**, each with its own release-please instance, config, manifest,
+changelog and tag namespace, both driven by the same `Release Please` workflow on every push to `main`:
+
+| Line | Covers | Tag | Config and manifest | Changelog |
+|------|--------|-----|---------------------|-----------|
+| App | everything except `docs/`, `.github/`, `.release-please/`, `deploy/`, `taskfile/` | `vX.Y.Z` | `.release-please/config-app.json`, `manifest-app.json` | `CHANGELOG.md` |
+| Chart | `deploy/chart/` | `chart-vX.Y.Z` | `.release-please/config-chart.json`, `manifest-chart.json` | `deploy/chart/CHANGELOG.md` |
+
+They are separate so a chart fix does not force an app release that ships an identical binary, and an app
+release does not republish the chart by itself. They are linked in one direction: the app line owns
+`appVersion` in `deploy/chart/Chart.yaml`, which it reaches as an `extra-files` entry of its own package and
+rewrites through the `# x-release-please-version` marker on that line; the chart line owns `version`. Because the app release commit touches `Chart.yaml` and `chore` is visible in the chart changelog,
+every app release also opens or refreshes the chart release pull request with a `release X.Y.Z` entry, and
+merging that publishes a chart whose default image is the new app.
+<!-- pack:chart:end -->
+
 ## How It Works
 
 1. Pull requests are squash-merged to `main` with a conventional title. The title becomes the commit that release-please evaluates.
 2. A push to `main` opens or updates a `chore: release X.Y.Z` pull request.
 3. The release pull request updates the manifest, `CHANGELOG.md`, and the generic `version.txt` version file.
 4. Merging that pull request creates the `vX.Y.Z` tag and GitHub Release.
+<!-- pack:chart:start -->
+5. The chart line does the same for commits under `deploy/chart/`: a `chore: release chart X.Y.Z` pull
+   request bumps `.release-please/manifest-chart.json`, the chart changelog, `version` in `Chart.yaml` and the
+   version in the chart `README.md`; merging it creates `chart-vX.Y.Z` and runs `publish-chart.yml`, which
+   annotates `Chart.yaml` with the release image, packages the chart at that version, pushes it to
+   `CHART_REPOSITORY`, signs it with cosign, pushes `artifacthub-repo.yml` as a sibling OCI artifact and
+   appends the install section to the release notes.
+<!-- pack:chart:end -->
 
 | Commit type | Version bump | Release notes |
 |-------------|--------------|---------------|
@@ -20,6 +45,18 @@ Release state is defined by conventional commits on `main`, the config and manif
 | `feat!:`, `fix!:`, or a `BREAKING CHANGE:` footer | Major, or minor while the version is below `1.0.0` | Breaking Changes |
 | `perf:`, `revert:`, `docs:`, `refactor:` | Patch | Own section |
 | `ci:`, `chore:`, `build:`, `style:`, `test:` | None on their own | Not shown |
+<!-- pack:chart:start -->
+
+The chart line uses the same table with one difference: `chore:` is visible there, as Miscellaneous, and bumps
+the patch version. That is what carries an app release (`chore: release X.Y.Z` touches `Chart.yaml`) into a
+chart release. Which line sees a commit is decided by paths, not by scope: the app line ignores `docs/`,
+`.github/`, `.release-please/`, `deploy/` and `taskfile/`, the chart line only sees `deploy/chart/`. A commit touching both opens both
+release pull requests. Scope chart-only pull requests `feat(chart):` or `fix(chart):` and keep them inside
+`deploy/chart`: one file the app line does not exclude puts the commit in the app changelog and bumps the app
+version, and the `Chart Scope Paths` check in `pr-title.yml` fails such a pull request so it is split rather
+than retyped.
+When `exclude-paths` in `config-app.json` changes, update that check's patterns too.
+<!-- pack:chart:end -->
 
 Both columns are set by `changelog-sections` in `.release-please/config-app.json`, and the second drives the first.
 A section marked `hidden: true` contributes no lines to the changelog entry, and release-please skips the
@@ -74,9 +111,9 @@ tag: its `version-file` option defaults to empty and the file updater is registe
 Switching to `go` without setting `"version-file"` leaves `version.txt` frozen with nothing replacing it, and
 the version stamped into release binaries goes stale with it.
 
-`exclude-paths` is set to `docs`, `.github` and `.release-please`, so a change confined to those directories does
-not cut a release: documentation, workflows, issue templates, the settings file and the release configuration
-change nothing that ships. It covers those trees only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside
+`exclude-paths` is set to `docs`, `.github`, `.release-please`, `deploy` and `taskfile`, so a change confined to
+those directories does not cut a release: documentation, workflows, issue templates, the settings file, the
+release configuration and the chart change nothing that the app release ships. It covers those trees only: `README.md`, `CONTRIBUTING.md`, `SECURITY.md` and the other root documents sit outside
 it, so a `docs:` commit touching those still produces a patch release, and a `fix:` to `Taskfile.yml` does
 too. Add paths to `exclude-paths` if that is not what you want.
 
@@ -112,6 +149,29 @@ Each of these cost a debugging session in a repository adopted from this templat
   and with `chore` hidden there the second line sees an empty changelog and opens nothing. Make `chore`
   visible in the dependent line's config.
 
+<!-- pack:chart:start -->
+## Where the Chart Goes
+
+`publish-chart.yml` pushes to `vars.CHART_REPOSITORY`, an OCI repository path without the chart name. Unset,
+it is `ttl.sh/<owner>/<repo>/charts`: ttl.sh is anonymous and ephemeral, keeping an artifact for at most 24
+hours, so a fresh repository proves the packaging, push, signing and release-notes path with no secret at all.
+It is not where releases should live. For a real registry set the variable and the `CHART_REGISTRY_USERNAME`
+and `CHART_REGISTRY_PASSWORD` secrets; the workflow header lists the GHCR mapping and the keyless variant for
+registries that federate GitHub's OIDC identity. A manual dispatch may name another repository only on the
+configured host, or on a host in `vars.CHART_REGISTRY_ALLOWLIST`.
+
+Install and verify a published chart:
+
+```bash
+helm install <name> oci://<CHART_REPOSITORY>/<name> --version X.Y.Z
+cosign verify <CHART_REPOSITORY>/<name>@<digest> \
+  --certificate-identity-regexp '^https://github\.com/<org>/<repo>/\.github/workflows/publish-chart\.yml@' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+The release notes of every `chart-v*` release carry these commands with the real values.
+
+<!-- pack:chart:end -->
 ## The Release Pull Request Gets No Workflow Runs
 
 GitHub raises no workflow events for a ref pushed with `GITHUB_TOKEN`. release-please opens its
@@ -168,3 +228,13 @@ Before merging a release pull request:
 3. `release-as` is absent from `.release-please/config-app.json`.
 4. After the merge, the `Release Please` workflow completes and the release notes end with the verification
    commands.
+<!-- pack:chart:start -->
+
+Before merging a chart release pull request:
+
+1. `deploy/chart/CHANGELOG.md`, `Chart.yaml` (`version`) and the chart `README.md` show the new chart version.
+   A release pull request that does not touch the README means the restamp markers broke.
+2. `appVersion` in `Chart.yaml` names an app release that has already been published; after an app release the
+   chart changelog lists `release X.Y.Z` under Miscellaneous, which is expected.
+3. `release-as` is absent from `.release-please/config-chart.json`.
+<!-- pack:chart:end -->

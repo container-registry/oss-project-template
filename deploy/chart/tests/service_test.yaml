@@ -1,0 +1,38 @@
+---
+suite: service
+release:
+  name: t
+templates:
+  - service.yaml
+tests:
+  - it: exposes the configured port on a ClusterIP by default
+    asserts:
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+
+  - it: selects the pods by the selector labels only
+    asserts:
+      - equal:
+          path: spec.selector
+          value:
+            app.kubernetes.io/name: oss-project-template
+            app.kubernetes.io/instance: t
+
+  - it: honours service.type and service.port
+    set:
+      service.type: NodePort
+      service.port: 80
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+      - equal:
+          path: spec.ports[0].port
+          value: 80

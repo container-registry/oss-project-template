@@ -61,6 +61,10 @@ def check_yaml_loads(errors: list[str]) -> None:
         return
 
     for path in _files(".yml", ".yaml"):
+        # Helm templates are Go templates that only become YAML when rendered;
+        # chart-ci.yml renders and lints them.
+        if path.is_relative_to(ROOT / "deploy/chart/templates"):
+            continue
         try:
             yaml.safe_load(path.read_text(encoding="utf-8"))
         except Exception as exc:  # noqa: BLE001 - report whatever the loader raises
