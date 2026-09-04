@@ -218,9 +218,7 @@ def check_local_workflow_calls_resolve(errors: list[str]) -> None:
             errors.append(f"{_rel(path)}: calls {match.group(1)!r}, which does not exist")
 
 
-# The `uses:` key, its ref, and the `# vX.Y.Z` comment that has to travel with
-# it. Anchored on the key so the pin examples printed by hygiene.yml's own
-# check, which are shell strings, are not read as pins.
+# Anchored on the key so hygiene.yml's own printed pin examples are not read as pins.
 USES_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*(?P<ref>\S+)(?:\s*#\s*(?P<comment>.*?))?\s*$")
 
 
