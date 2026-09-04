@@ -17,7 +17,8 @@ includes:
     dir: .
 
 vars:
-  # The platform set publish-image.yml builds and image:verify asserts.
+  # The only definition of the platform set; publish-image.yml reads it back
+  # rather than keeping a copy that could drift from what ships.
   IMAGE_PLATFORMS: linux/amd64,linux/arm64
   RELEASE_BINARY: '{{.RELEASE_BINARY | default "app"}}'
   RELEASE_DIST: '{{.RELEASE_DIST | default "dist"}}'
@@ -176,6 +177,16 @@ tasks:
         --build-arg VERSION="$(cat version.txt)"
         -t "{{.RELEASE_BINARY}}:$(cat version.txt)" .
 
+  image:platforms:
+    desc: Print the platform list the image build and image:verify share
+    # Nothing but the list, so a workflow can capture it into GITHUB_OUTPUT.
+    silent: true
+    env:
+      # Via env, not templated: an override with shell metacharacters would run.
+      PLATFORMS: '{{.IMAGE_PLATFORMS}}'
+    cmds:
+      - printf '%s\n' "${PLATFORMS}"
+
   image:verify:
     desc: Verify a pushed image index carries exactly IMAGE_PLATFORMS (IMAGE_REF=name@sha256:... or name:tag)
     status: ['! test -f Dockerfile']
@@ -244,8 +255,17 @@ tasks:
           # there is one, so linux/arm/v6 and linux/arm/v7 are two platforms.
           # buildx records provenance and SBOM attestations as unknown/unknown
           # entries of the index; they are attachments, not platforms.
+          # Filter the fields, not the joined key, or an attestation carrying a
+          # variant slips through; "" counts as true and "/" + 7 aborts jq.
           actual=$(printf '%s' "${raw}" \
-            | jq -r '.manifests[]? | .platform // {} | "\(.os // "?")/\(.architecture // "?")\(if .variant then "/" + .variant else "" end)" | select(. != "unknown/unknown")' \
+            | jq -r '
+                .manifests[]? | .platform // {}
+                | select((.os | type) == "string" and .os != ""
+                         and (.architecture | type) == "string" and .architecture != "")
+                | select(.os != "unknown" or .architecture != "unknown")
+                | "\(.os)/\(.architecture)"
+                  + (if (.variant | type) == "string" and .variant != ""
+                     then "/" + .variant else "" end)' \
             | normalize | sort)
           if [ -z "${actual}" ]; then
             echo "No platform manifests in ${reference}" >&2

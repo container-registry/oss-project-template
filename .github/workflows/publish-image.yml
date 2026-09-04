@@ -39,11 +39,6 @@ on:
 
 permissions: {}
 
-env:
-  # One definition for the build and for the verification of what was pushed;
-  # keep it equal to IMAGE_PLATFORMS in Taskfile.yml.
-  IMAGE_PLATFORMS: linux/amd64,linux/arm64
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -107,6 +102,22 @@ jobs:
           ref: ${{ steps.release.outputs.sha }}
           persist-credentials: false
 
+      # Must stay above the build: it installs the Task the next step needs.
+      - uses: ./.github/actions/setup
+        with:
+          go: "false"
+
+      - name: Read the build platforms from the Taskfile
+        id: platforms
+        run: |
+          set -euo pipefail
+          platforms="$(task --silent image:platforms)"
+          if [ -z "${platforms}" ]; then
+            echo "::error::task image:platforms printed nothing; IMAGE_PLATFORMS is not set in Taskfile.yml"
+            exit 1
+          fi
+          echo "list=${platforms}" >> "$GITHUB_OUTPUT"
+
       - name: Resolve image name
         id: target
         env:
@@ -133,7 +144,7 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
         with:
           context: .
-          platforms: ${{ env.IMAGE_PLATFORMS }}
+          platforms: ${{ steps.platforms.outputs.list }}
           push: true
           tags: |
             ${{ steps.target.outputs.image }}:${{ inputs.tag_name }}
@@ -143,17 +154,13 @@ jobs:
           provenance: false  # replaced by the attestation below
           sbom: false        # replaced by the syft attestation below
 
-      # Task comes from the checkout above; Go is not needed for this.
-      - uses: ./.github/actions/setup
-        with:
-          go: "false"
-
       # Reads the index back from the registry and fails on a missing,
       # unexpected or duplicated platform, before anything is signed.
+      # PLATFORMS is unset on purpose: the assertion must come from the Taskfile.
       - name: Verify the published platforms
         env:
           IMAGE_REF: ${{ steps.target.outputs.image }}@${{ steps.build.outputs.digest }}
-        run: task image:verify IMAGE_REF="${IMAGE_REF}" PLATFORMS="${IMAGE_PLATFORMS}"
+        run: task image:verify IMAGE_REF="${IMAGE_REF}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
