@@ -195,6 +195,8 @@ jobs:
       # produce a confusing failure. A scan that produced no usable report
       # counts zero fixable findings, which would delete a comment that is
       # still accurate, so that case is skipped too.
+      # Deliberately not split into a job that runs no pull-request code: the step
+      # runs only for same-repo pull requests, and it needs the reports this job produced.
       - name: Update pull request comment
         if: >-
           steps.detect.outputs.go == 'true' &&

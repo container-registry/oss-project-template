@@ -129,6 +129,11 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           echo "${bin}" >> "$GITHUB_PATH"
 
+      # taskfile/ct-lintconf.yaml is a fork of the lint config shipped in the
+      # CT_VERSION release, and a version bump is the moment it can drift.
+      - name: Lint config in sync with chart-testing
+        run: task helm:lint:conf:drift
+
       # helm lint, ct lint, kube-linter, Artifact Hub metadata, values schema
       - name: Lint
         run: task helm:lint

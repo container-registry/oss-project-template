@@ -40,6 +40,51 @@ tasks:
           --validate-maintainers=false --target-branch main
       fi
 
+  lint:conf:drift:
+    desc: Fail if taskfile/ct-lintconf.yaml has drifted from chart-testing's own etc/lintconf.yaml
+    # The fork is a copy of upstream's file with exactly one rule changed, and
+    # nothing re-checked it when CT_VERSION moved. Compare against the pinned
+    # release rather than against main: the pin is what ct lint actually runs.
+    cmd: |
+      set -eu
+      work="$(mktemp -d "${TMPDIR:-/tmp}/ct-lintconf.XXXXXX")"
+      trap 'rm -rf "${work}"' EXIT
+
+      # chart-ci.yml already extracted the release tarball and points
+      # CT_CHART_YAML_SCHEMA at etc/chart_schema.yaml inside it, so in CI the
+      # sibling file is on disk and there is nothing to download.
+      upstream=""
+      if [ -n "${CT_CHART_YAML_SCHEMA:-}" ] && [ -f "${CT_CHART_YAML_SCHEMA%/*}/lintconf.yaml" ]; then
+        upstream="${CT_CHART_YAML_SCHEMA%/*}/lintconf.yaml"
+      else
+        cache="${TMPDIR:-/tmp}/ct-{{.CT_VERSION}}"
+        if [ ! -f "${cache}/etc/lintconf.yaml" ]; then
+          mkdir -p "${cache}"
+          curl -fsSL "https://github.com/helm/chart-testing/releases/download/v{{.CT_VERSION}}/chart-testing_{{.CT_VERSION}}_linux_amd64.tar.gz" \
+            -o "${work}/ct.tar.gz"
+          if command -v sha256sum >/dev/null 2>&1; then
+            echo "{{.CT_SHA256_LINUX_AMD64}}  ${work}/ct.tar.gz" | sha256sum -c -
+          else
+            echo "{{.CT_SHA256_LINUX_AMD64}}  ${work}/ct.tar.gz" | shasum -a 256 -c -
+          fi
+          tar -xzf "${work}/ct.tar.gz" -C "${cache}" etc/lintconf.yaml
+        fi
+        upstream="${cache}/etc/lintconf.yaml"
+      fi
+
+      # Comment-only lines are the fork's own header; inline comments are
+      # upstream's and are compared. Applying the one intended change to
+      # upstream makes every remaining difference drift, printed as a diff.
+      grep -v '^[[:space:]]*#' "${upstream}" \
+        | sed 's/^\([[:space:]]*min-spaces-from-content:\) 2$/\1 1/' > "${work}/expected.yaml"
+      grep -v '^[[:space:]]*#' taskfile/ct-lintconf.yaml > "${work}/actual.yaml"
+      if ! diff -u "${work}/expected.yaml" "${work}/actual.yaml"; then
+        echo "taskfile/ct-lintconf.yaml has drifted from chart-testing v{{.CT_VERSION}} etc/lintconf.yaml." >&2
+        echo "Re-fork it from that release and keep only the comments.min-spaces-from-content change." >&2
+        exit 1
+      fi
+      echo "ct-lintconf.yaml matches chart-testing v{{.CT_VERSION}} apart from min-spaces-from-content."
+
   lint:ah:
     desc: Validate the Artifact Hub metadata
     cmd: |
@@ -227,6 +272,7 @@ tasks:
   ci:
     desc: Full chart quality gate (what chart-ci.yml runs)
     cmds:
+      - task: lint:conf:drift
       - task: lint
       - task: template
       - task: unittest

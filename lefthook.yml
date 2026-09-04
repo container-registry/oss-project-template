@@ -38,8 +38,11 @@ commit-msg:
         fi
     dco-signoff:
       run: |
-        if ! grep -q "^Signed-off-by:" {1}; then
-          echo "ERROR: Missing DCO sign-off. Use 'git commit -s'"
+        # Same regex as dco.yml and `task dco-check`: a bare or name-only
+        # trailer passes a plain "^Signed-off-by:" grep and then fails the
+        # pull request, which is the round trip this hook exists to save.
+        if ! grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" {1}; then
+          echo "ERROR: Missing DCO sign-off with a name and an address. Use 'git commit -s'"
           exit 1
         fi
 
