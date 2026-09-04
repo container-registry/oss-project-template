@@ -102,50 +102,50 @@ tasks:
 
   trivy:
     desc: Scan the rendered manifests for misconfigurations
-    cmds:
-      # Rendered outside the chart: an interrupted run that leaves the dump
-      # behind must not put it where `helm package` would ship it.
-      - mkdir -p "${TMPDIR:-/tmp}/chart-trivy"
-      - helm template test {{.CHART_DIR}} > "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml"
-      - defer: rm -rf "${TMPDIR:-/tmp}/chart-trivy"
-      - |
-        if command -v trivy >/dev/null 2>&1; then
-          trivy config "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml" \
-            --ignorefile {{.CHART_DIR}}/.trivyignore --severity HIGH,CRITICAL --exit-code 1
-        else
-          docker run --rm -v "${TMPDIR:-/tmp}/chart-trivy":/scan -v "$(pwd)/{{.CHART_DIR}}":/chart \
-            aquasec/trivy:{{.TRIVY_VERSION}} \
-            config /scan/manifests.yaml \
-            --ignorefile /chart/.trivyignore --severity HIGH,CRITICAL --exit-code 1
-        fi
+    # One shell: the manifests are rendered into a directory of this run's
+    # own, outside the chart, so an interrupt cannot leave a dump where
+    # `helm package` would ship it and two runs cannot delete each other's.
+    cmd: |
+      set -eu
+      scan="$(mktemp -d "${TMPDIR:-/tmp}/chart-trivy.XXXXXX")"
+      trap 'rm -rf "${scan}"' EXIT
+      helm template test {{.CHART_DIR}} > "${scan}/manifests.yaml"
+      if command -v trivy >/dev/null 2>&1; then
+        trivy config "${scan}/manifests.yaml" \
+          --ignorefile {{.CHART_DIR}}/.trivyignore --severity HIGH,CRITICAL --exit-code 1
+      else
+        docker run --rm -v "${scan}":/scan -v "$(pwd)/{{.CHART_DIR}}":/chart \
+          aquasec/trivy:{{.TRIVY_VERSION}} \
+          config /scan/manifests.yaml \
+          --ignorefile /chart/.trivyignore --severity HIGH,CRITICAL --exit-code 1
+      fi
 
   trivy:report:
     desc: Trivy misconfiguration scan with a SARIF report (TRIVY_SARIF=path relative to the repository root)
-    cmds:
-      # The Docker fallback writes through a mount of the repository root, so
-      # a path outside it would land somewhere else than the local binary
-      # writes it.
-      - |
-        case "{{.TRIVY_SARIF}}" in
-          /*|../*|*/../*)
-            echo "TRIVY_SARIF must be relative to the repository root, got '{{.TRIVY_SARIF}}'." >&2
-            exit 1 ;;
-        esac
-      - mkdir -p "${TMPDIR:-/tmp}/chart-trivy"
-      - helm template test {{.CHART_DIR}} > "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml"
-      - defer: rm -rf "${TMPDIR:-/tmp}/chart-trivy"
-      - |
-        if command -v trivy >/dev/null 2>&1; then
-          trivy config "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml" \
-            --ignorefile {{.CHART_DIR}}/.trivyignore \
-            --severity HIGH,CRITICAL --format sarif --output {{.TRIVY_SARIF}}
-        else
-          docker run --rm -v "${TMPDIR:-/tmp}/chart-trivy":/scan -v "$(pwd)/{{.CHART_DIR}}":/chart -v "$(pwd)":/out \
-            aquasec/trivy:{{.TRIVY_VERSION}} \
-            config /scan/manifests.yaml \
-            --ignorefile /chart/.trivyignore \
-            --severity HIGH,CRITICAL --format sarif --output /out/{{.TRIVY_SARIF}}
-        fi
+    cmd: |
+      set -eu
+      # The Docker fallback writes the report through a mount of the
+      # repository root, so a path outside it would land somewhere else than
+      # the local binary writes it.
+      case "{{.TRIVY_SARIF}}" in
+        /*|../*|*/../*)
+          echo "TRIVY_SARIF must be relative to the repository root, got '{{.TRIVY_SARIF}}'." >&2
+          exit 1 ;;
+      esac
+      scan="$(mktemp -d "${TMPDIR:-/tmp}/chart-trivy.XXXXXX")"
+      trap 'rm -rf "${scan}"' EXIT
+      helm template test {{.CHART_DIR}} > "${scan}/manifests.yaml"
+      if command -v trivy >/dev/null 2>&1; then
+        trivy config "${scan}/manifests.yaml" \
+          --ignorefile {{.CHART_DIR}}/.trivyignore \
+          --severity HIGH,CRITICAL --format sarif --output {{.TRIVY_SARIF}}
+      else
+        docker run --rm -v "${scan}":/scan -v "$(pwd)/{{.CHART_DIR}}":/chart -v "$(pwd)":/out \
+          aquasec/trivy:{{.TRIVY_VERSION}} \
+          config /scan/manifests.yaml \
+          --ignorefile /chart/.trivyignore \
+          --severity HIGH,CRITICAL --format sarif --output /out/{{.TRIVY_SARIF}}
+      fi
 
   docs:
     desc: Regenerate the chart README from values.yaml and README.md.gotmpl

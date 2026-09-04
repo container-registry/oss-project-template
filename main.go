@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -72,8 +73,11 @@ func serveHTTP(ctx context.Context, addr string) error {
 		Addr:    addr,
 		Handler: routes(),
 		// Without a header deadline one slow client holds a connection open
-		// for as long as it likes.
+		// for as long as it likes. IdleTimeout has no default of its own: at
+		// zero it falls back to ReadTimeout, which is zero too, so keep-alive
+		// connections would never be reclaimed.
 		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	errs := make(chan error, 1)
@@ -87,6 +91,13 @@ func serveHTTP(ctx context.Context, addr string) error {
 		// arrives, so in-flight requests are drained rather than reset.
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		return srv.Shutdown(shutdown)
+		err := srv.Shutdown(shutdown)
+		if errors.Is(err, context.DeadlineExceeded) {
+			// The listener is closed either way, so a drain that runs out of
+			// time is a normal termination and must not exit non-zero.
+			fmt.Fprintln(os.Stderr, "shutdown deadline exceeded; in-flight requests were dropped")
+			return nil
+		}
+		return err
 	}
 }
