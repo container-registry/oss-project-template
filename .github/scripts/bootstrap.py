@@ -335,6 +335,14 @@ def remove_chart_pack(dry_run: bool) -> None:
     if pruned != text:
         labeler.write_text(pruned, encoding="utf-8")
         print("removed the component/chart label from labeler.yml")
+    # And its definition: settings.yml is applied to the live repository, so
+    # the label would be created there for a directory that does not exist.
+    settings = ROOT / ".github/settings.yml"
+    text = settings.read_text(encoding="utf-8")
+    pruned = re.sub(r"  component/chart:\n(?:    .*\n)*", "", text, count=1)
+    if pruned != text:
+        settings.write_text(pruned, encoding="utf-8")
+        print("removed the component/chart label from settings.yml")
 
 
 def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
