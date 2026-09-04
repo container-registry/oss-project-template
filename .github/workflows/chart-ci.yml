@@ -46,8 +46,10 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      # The chart's Trivy SARIF goes to the Security tab.
+      # The chart's Trivy SARIF goes to the Security tab. On a private
+      # repository the upload also needs actions: read.
       security-events: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -153,9 +155,12 @@ jobs:
         if: always()
         run: task helm:trivy:report
 
-      # Forks and Dependabot never get security-events: write, so uploading
-      # would fail the gate for contributors who cannot fix it. Pushes to main
-      # upload too; that is what feeds default-branch code scanning.
+      # A pull request from a fork gets a read-only token whatever this job
+      # asks for, so uploading would fail the gate for a contributor who
+      # cannot fix it. Dependabot is not in that class: its runs are
+      # fork-like, but the permissions key still raises their token.
+      # Pushes to main upload too; that is what feeds default-branch code
+      # scanning.
       - name: Upload Trivy SARIF
         if: always() && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd  # v4.37.7
