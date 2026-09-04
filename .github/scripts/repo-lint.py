@@ -218,6 +218,55 @@ def check_local_workflow_calls_resolve(errors: list[str]) -> None:
             errors.append(f"{_rel(path)}: calls {match.group(1)!r}, which does not exist")
 
 
+# The `uses:` key, its ref, and the `# vX.Y.Z` comment that has to travel with
+# it. Anchored on the key so the pin examples printed by hygiene.yml's own
+# check, which are shell strings, are not read as pins.
+USES_RE = re.compile(r"^\s*(?:-\s+)?uses:\s*(?P<ref>\S+)(?:\s*#\s*(?P<comment>.*?))?\s*$")
+
+
+def check_action_pins_agree(errors: list[str]) -> None:
+    """One action repository must be pinned at one SHA everywhere.
+
+    `task lint:pins` judges each `uses:` on its own, so a branch that predates a
+    Dependabot bump reintroduces the old SHA and merges clean. That is how
+    github/codeql-action came to ship at two SHAs here at once. Subpaths of one
+    repository are one release, so the grouping key is owner/repo rather than
+    the full path.
+    """
+    seen: dict[str, dict[tuple[str, str], list[str]]] = {}
+
+    for root in (ROOT / ".github/workflows", ROOT / ".github/actions"):
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.suffix not in {".yml", ".yaml"}:
+                continue
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                match = USES_RE.match(line)
+                if not match:
+                    continue
+                ref = match.group("ref")
+                if ref.startswith(("./", "docker://")) or "@" not in ref:
+                    continue
+                action, _, sha = ref.rpartition("@")
+                # Anything that is not a SHA is lint:pins' complaint, not this one.
+                if not re.fullmatch(r"[a-f0-9]{40}", sha):
+                    continue
+                repo = "/".join(action.split("/")[:2])
+                comment = (match.group("comment") or "").strip()
+                key = (sha, comment)
+                seen.setdefault(repo, {}).setdefault(key, []).append(f"{_rel(path)}:{number}")
+
+    for repo, pins in sorted(seen.items()):
+        if len(pins) < 2:
+            continue
+        detail = "; ".join(
+            f"{sha} ({comment or 'no version comment'}) in {', '.join(where)}"
+            for (sha, comment), where in sorted(pins.items())
+        )
+        errors.append(f"{repo} is pinned at {len(pins)} different versions: {detail}")
+
+
 def check_issue_template_config(errors: list[str]) -> None:
     """Every contact link needs name, url and about.
 
@@ -409,6 +458,7 @@ CHECKS = (
     check_version_file_matches_manifest,
     check_referenced_paths_exist,
     check_pr_target_never_checks_out,
+    check_action_pins_agree,
     check_issue_template_config,
     check_local_workflow_calls_resolve,
     check_bootstrap_left_nothing_behind,

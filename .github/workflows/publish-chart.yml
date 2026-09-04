@@ -112,11 +112,26 @@ jobs:
             exit 1
           fi
           version="${BASH_REMATCH[1]}"
-          read -r type sha < <(gh api "repos/${GH_REPO}/git/ref/tags/${TAG_NAME}" --jq '"\(.object.type) \(.object.sha)"')
-          if [ "${type}" = "tag" ]; then
-            sha=$(gh api "repos/${GH_REPO}/git/tags/${sha}" --jq '.object.sha')
+          # Each call is captured and checked rather than read from a process
+          # substitution: errexit ignores what a process substitution exits
+          # with, and gh prints its error body on stdout, so a 404 otherwise
+          # lands in the variables and is reported as a target mismatch.
+          if ! ref=$(gh api "repos/${GH_REPO}/git/ref/tags/${TAG_NAME}" --jq '"\(.object.type) \(.object.sha)"'); then
+            echo "::error::${TAG_NAME} is not a tag in ${GH_REPO}"
+            exit 1
           fi
-          read -r draft target < <(gh api "repos/${GH_REPO}/releases/tags/${TAG_NAME}" --jq '"\(.draft) \(.target_commitish)"')
+          read -r type sha <<<"${ref}"
+          if [ "${type}" = "tag" ]; then
+            if ! sha=$(gh api "repos/${GH_REPO}/git/tags/${sha}" --jq '.object.sha'); then
+              echo "::error::cannot dereference the annotated tag ${TAG_NAME} in ${GH_REPO}"
+              exit 1
+            fi
+          fi
+          if ! release=$(gh api "repos/${GH_REPO}/releases/tags/${TAG_NAME}" --jq '"\(.draft) \(.target_commitish)"'); then
+            echo "::error::${TAG_NAME} has no GitHub release. release-please creates one when the release pull request is merged."
+            exit 1
+          fi
+          read -r draft target <<<"${release}"
           if [ "${draft}" != "false" ] || [ "${target}" != "${sha}" ]; then
             echo "::error::${TAG_NAME} must be a published release whose target is ${sha} (draft=${draft}, target=${target}). release-please creates releases that way; a release made by hand does not qualify."
             exit 1
