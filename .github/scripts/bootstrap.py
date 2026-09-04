@@ -25,6 +25,11 @@ SKIP_DIRS = {".git", "node_modules", "dist", "bin", ".task", "vendor", ".idea"}
 TEXT_SUFFIXES = {".md", ".yml", ".yaml", ".json", ".toml", ".txt", ".env", ".go", ".py", ".js"}
 EXTRA_FILES = {"Dockerfile", "LICENSE", "NOTICE", "CODEOWNERS", "go.mod", "Taskfile.yml", ".gitignore"}
 
+# helm-docs renders this pair into deploy/chart/README.md as well, so the
+# rewrite is textual across the chart tree, not a YAML edit of Chart.yaml.
+CHART_MAINTAINER_NAME = "Container Registry Maintainers"
+CHART_MAINTAINER_EMAIL = "oss@container-registry.com"
+
 # Files that document the placeholder mechanism and are removed at the end, so
 # they are never substituted.
 TEMPLATE_ONLY = ["CHECKLIST.md", ".github/scripts/bootstrap.py"]
@@ -338,6 +343,13 @@ def remove_chart_pack(dry_run: bool) -> None:
     if data["packages"]["."].pop("extra-files", None):
         config.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         print("removed the chart extra-file from .release-please/config-app.json")
+    workflow = ROOT / ".github/workflows/release-please.yml"
+    text = workflow.read_text(encoding="utf-8")
+    pruned = text.replace("release pull requests for the app and for the chart,",
+                          "release pull requests for the app,", 1)
+    if pruned != text:
+        workflow.write_text(pruned, encoding="utf-8")
+        print("removed the chart from the release-please.yml header comment")
     labeler = ROOT / ".github/labeler.yml"
     text = labeler.read_text(encoding="utf-8")
     pruned = re.sub(r"component/chart:\n(?:  .*\n)*\n?", "", text, count=1)
@@ -386,6 +398,12 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
         # which the fullname helper's 63-character truncation does not cover.
         if len(repo) > 63:
             sys.exit(f"error: REPO_NAME {values['REPO_NAME']!r} normalises to {len(repo)} characters; a chart name has at most 63")
+        # Without this the rewrite below would silently no-op after a rename.
+        for rel in ("Chart.yaml", "artifacthub-repo.yml"):
+            text = (chart / rel).read_text(encoding="utf-8")
+            if CHART_MAINTAINER_NAME not in text or CHART_MAINTAINER_EMAIL not in text:
+                sys.exit(f"error: deploy/chart/{rel} no longer carries the template maintainer identity; "
+                         "update CHART_MAINTAINER_NAME/CHART_MAINTAINER_EMAIL in bootstrap.py")
         # The owner appears on its own next to a `{{ .Name }}` in the helm-docs
         # template, so it cannot be rewritten as part of the owner/name pair.
         for path in sorted(chart.rglob("*")):
@@ -394,6 +412,8 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
             text = path.read_text(encoding="utf-8")
             updated = text.replace("container-registry/", f"{org}/")
             updated = updated.replace("oss-project-template", repo)
+            updated = updated.replace(CHART_MAINTAINER_NAME, values["MAINTAINER_NAME"])
+            updated = updated.replace(CHART_MAINTAINER_EMAIL, values["SECURITY_EMAIL"])
             if updated != text:
                 print(f"{'would rewrite' if dry_run else 'rewriting'} {path.relative_to(ROOT)} for {org}/{repo}")
                 if not dry_run:
