@@ -9,7 +9,7 @@ ARG BASE_IMAGE_DIGEST=sha256:1b7b9f0f0e0a1d2155f531db587cc48ec26aaf97ab64364225f
 # --platform=$BUILDPLATFORM keeps the compiler on the native runner and lets Go
 # cross-compile. Without it a linux/arm64 build runs the whole Go toolchain
 # under QEMU, which is minutes slower for no benefit.
-FROM --platform=$BUILDPLATFORM golang:1.27.0-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine AS builder
 
 WORKDIR /src
 
