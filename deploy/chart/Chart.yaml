@@ -5,7 +5,7 @@ apiVersion: v2
 name: oss-project-template
 description: A Helm chart for the service this repository ships.
 type: application
-version: 0.0.0
+version: 1.0.0
 # appVersion tracks the application release; the app release-please line
 # rewrites this line, the chart release-please line rewrites `version` above.
 appVersion: "v1.0.0" # x-release-please-version
