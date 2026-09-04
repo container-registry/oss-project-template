@@ -13,9 +13,8 @@ on:
 
 permissions: {}
 
-# Two pushes to main seconds apart ran this workflow twice in parallel, and
-# each run opened its own chart release pull request on the same branch.
-# Queue the runs instead; never cancel one, a cancelled run can skip publishing.
+# Parallel runs on back-to-back pushes each opened a release pull request.
+# Queue them, and never cancel one: a cancelled run can skip publishing.
 concurrency:
   group: release-please-${{ github.ref }}
   cancel-in-progress: false

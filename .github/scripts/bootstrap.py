@@ -237,8 +237,7 @@ def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
             contributing.write_text(pruned, encoding="utf-8")
             print("pruned the vulnerability section from CONTRIBUTING.md")
 
-    # The release pull request header promises the image and binaries the Go
-    # pack publishes; without the pack the merge only tags and releases.
+    # Without the Go pack the merge only tags and releases; the header must not promise an image.
     config = ROOT / ".release-please/config-app.json"
     if config.exists() and not dry_run:
         text = config.read_text(encoding="utf-8")
@@ -400,7 +399,6 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
                 if not dry_run:
                     path.write_text(updated, encoding="utf-8")
 
-    # The release pull request footers link to this repository's release doc.
     for rel in (".release-please/config-app.json", ".release-please/config-chart.json"):
         cfg = ROOT / rel
         if not cfg.exists():
