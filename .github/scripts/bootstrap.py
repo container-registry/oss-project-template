@@ -25,11 +25,8 @@ SKIP_DIRS = {".git", "node_modules", "dist", "bin", ".task", "vendor", ".idea"}
 TEXT_SUFFIXES = {".md", ".yml", ".yaml", ".json", ".toml", ".txt", ".env", ".go", ".py", ".js"}
 EXTRA_FILES = {"Dockerfile", "LICENSE", "NOTICE", "CODEOWNERS", "go.mod", "Taskfile.yml", ".gitignore"}
 
-# The chart publishes a maintainer to Artifact Hub, so it carries the template
-# author's identity until bootstrap rewrites it. These are the literals to
-# rewrite; helm-docs renders the same pair into deploy/chart/README.md, which is
-# why the rewrite is textual across the chart tree rather than a YAML edit of
-# Chart.yaml alone.
+# helm-docs renders this pair into deploy/chart/README.md as well, so the
+# rewrite is textual across the chart tree, not a YAML edit of Chart.yaml.
 CHART_MAINTAINER_NAME = "Container Registry Maintainers"
 CHART_MAINTAINER_EMAIL = "oss@container-registry.com"
 
@@ -337,8 +334,6 @@ def remove_chart_pack(dry_run: bool) -> None:
     if data["packages"]["."].pop("extra-files", None):
         config.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         print("removed the chart extra-file from .release-please/config-app.json")
-    # Both chart jobs are gone by now, so the header must stop advertising a
-    # chart release line.
     workflow = ROOT / ".github/workflows/release-please.yml"
     text = workflow.read_text(encoding="utf-8")
     pruned = text.replace("release pull requests for the app and for the chart,",
@@ -394,9 +389,7 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
         # which the fullname helper's 63-character truncation does not cover.
         if len(repo) > 63:
             sys.exit(f"error: REPO_NAME {values['REPO_NAME']!r} normalises to {len(repo)} characters; a chart name has at most 63")
-        # A rename of the template's own maintainer would make the two
-        # constants stop matching and the adopted chart would publish the
-        # template author as its Artifact Hub maintainer, silently.
+        # Without this the rewrite below would silently no-op after a rename.
         for rel in ("Chart.yaml", "artifacthub-repo.yml"):
             text = (chart / rel).read_text(encoding="utf-8")
             if CHART_MAINTAINER_NAME not in text or CHART_MAINTAINER_EMAIL not in text:
