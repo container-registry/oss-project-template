@@ -59,4 +59,7 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
   misses its filter, and the check waits forever. Require `required-checks` instead.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and
   say so; `repo-lint` fails the build if one ever gains a checkout step.
-- **A `feat:` confined to an excluded path releases nothing.** `exclude-paths` is set to `docs`.
+- **A `feat:` confined to an excluded path releases nothing.** `exclude-paths` is set to `docs` and `.github`,
+  and it is evaluated per file: one file outside pulls the whole commit back in.
+- **An open release pull request only refreshes when its body would change.** `always-update: true` in
+  `release-please-config.json` forces a rewrite on every push to `main`. Do not remove it.

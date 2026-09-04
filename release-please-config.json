@@ -1,12 +1,15 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "pull-request-header": "This PR prepares the next release based on conventional commits.",
+  "pull-request-header": "Release. Merging this pull request tags `vX.Y.Z` and creates the GitHub release.",
+  "pull-request-footer": "Squash-merge to release. `docs/RELEASES.md` explains the version rules and what the merge triggers.",
   "pull-request-title-pattern": "chore: release ${version}",
   "release-type": "simple",
+  "always-update": true,
   "include-v-in-tag": true,
   "bump-minor-pre-major": true,
   "exclude-paths": [
-    "docs"
+    "docs",
+    ".github"
   ],
   "packages": {
     ".": {}
