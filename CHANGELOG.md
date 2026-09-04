@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.0](https://github.com/container-registry/oss-project-template/compare/v1.0.0...v1.1.0) (2026-09-04)
+
+
+### Features
+
+* Helm chart pack with an independent release line ([#25](https://github.com/container-registry/oss-project-template/issues/25)) ([81fe310](https://github.com/container-registry/oss-project-template/commit/81fe310c77d2f532012e73c3e1c1cd512867778b))
+
+
+### Bug Fixes
+
+* exempt merge and bot commits from the DCO gate ([#11](https://github.com/container-registry/oss-project-template/issues/11)) ([7457eda](https://github.com/container-registry/oss-project-template/commit/7457eda86aedd784996fcfff956d232f0af3a85b))
+* **release:** keep the release PR current and document the release-please traps ([#19](https://github.com/container-registry/oss-project-template/issues/19)) ([85d83a8](https://github.com/container-registry/oss-project-template/commit/85d83a834ad5e857e5adfb2b758c34758ed8e212))
+* reset release state at bootstrap and tighten the adoption docs ([#12](https://github.com/container-registry/oss-project-template/issues/12)) ([5c3a3be](https://github.com/container-registry/oss-project-template/commit/5c3a3be02f21ace152bb3578915f5736d193ff23))
+
 ## 1.0.0 (2026-08-21)
 
 
