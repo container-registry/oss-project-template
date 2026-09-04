@@ -236,14 +236,9 @@ def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
             contributing.write_text(pruned, encoding="utf-8")
             print("pruned the vulnerability section from CONTRIBUTING.md")
 
-    release_please = ROOT / ".github/workflows/release-please.yml"
-    if release_please.exists() and not dry_run:
-        text = release_please.read_text(encoding="utf-8")
-        # Drop the jobs that call the workflows just deleted.
-        for job in ("publish-release-assets", "publish-image", "document-artifacts"):
-            text = re.sub(rf"\n  {job}:\n(?:(?:    |\n).*\n)*", "\n", text)
-        release_please.write_text(text, encoding="utf-8")
-        print("removed the publish jobs from release-please.yml")
+    # The jobs that call the workflows just deleted.
+    remove_jobs(".github/workflows/release-please.yml",
+                ("publish-release-assets", "publish-image", "document-artifacts"), dry_run)
 
 
 CHART_PACK = [
@@ -293,7 +288,10 @@ def remove_jobs(rel: str, jobs: tuple[str, ...], dry_run: bool) -> None:
     if path.exists() and not dry_run:
         text = path.read_text(encoding="utf-8")
         for job in jobs:
-            text = re.sub(rf"\n(?:  #[^\n]*\n)*  {job}:\n(?:(?:    |\n).*\n)*", "\n", text)
+            # A blank line belongs to the job, but only as a blank line: `\n.*\n`
+            # would also swallow the unindented line after it, which is the
+            # first comment line of the next job.
+            text = re.sub(rf"\n(?:  #[^\n]*\n)*  {job}:\n(?:(?:    .*\n)|\n)*", "\n", text)
         # Deleting the last job leaves its separator behind; yamllint rejects
         # a trailing blank line.
         text = re.sub(r"\n{3,}", "\n\n", text).rstrip("\n") + "\n"
@@ -352,12 +350,20 @@ def rewrite_identity_files(values: dict[str, str], dry_run: bool) -> None:
     # template itself. Its name and the image it deploys follow the repository.
     chart = ROOT / "deploy/chart"
     if chart.is_dir():
-        org, repo = values["ORG_NAME"], values["REPO_NAME"]
+        org = values["ORG_NAME"].lower()
+        # The chart name becomes a Kubernetes object name and an OCI repository
+        # segment, which allow neither uppercase nor a dot; a GitHub repository
+        # name allows both.
+        repo = re.sub(r"[^a-z0-9]+", "-", values["REPO_NAME"].lower()).strip("-")
+        if not repo:
+            sys.exit(f"error: REPO_NAME {values['REPO_NAME']!r} has no character a chart name can use")
+        # The owner appears on its own next to a `{{ .Name }}` in the helm-docs
+        # template, so it cannot be rewritten as part of the owner/name pair.
         for path in sorted(chart.rglob("*")):
             if not path.is_file() or path.suffix not in TEXT_SUFFIXES | {".gotmpl", ".tpl", ".txt"}:
                 continue
             text = path.read_text(encoding="utf-8")
-            updated = text.replace("container-registry/oss-project-template", f"{org}/{repo}".lower())
+            updated = text.replace("container-registry/", f"{org}/")
             updated = updated.replace("oss-project-template", repo)
             if updated != text:
                 print(f"{'would rewrite' if dry_run else 'rewriting'} {path.relative_to(ROOT)} for {org}/{repo}")
