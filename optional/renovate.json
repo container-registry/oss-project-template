@@ -62,7 +62,7 @@
     },
     {
       "customType": "regex",
-      "description": "The container base image, which the annotated manager above cannot handle: its currentValue is a whole reference rather than a version. `nonroot` is a moving tag, so the part that changes is the digest, and capturing currentDigest is what makes Renovate raise a digest update. versions.env and the Dockerfile ARG defaults hold the same pair and repo-lint fails the build if they drift, so both files are matched and land in one pull request. The two lines are matched as a unit and must stay adjacent.",
+      "description": "Base image digest. The annotated manager above cannot do this, because its currentValue would be the whole reference rather than a version. `nonroot` is a moving tag, so capturing currentDigest is what makes Renovate raise a digest update. Both files are matched because repo-lint requires the Dockerfile ARG defaults to equal versions.env.",
       "managerFilePatterns": [
         "/(^|/)versions\\.env$/",
         "/(^|/)Dockerfile$/"
