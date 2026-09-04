@@ -31,7 +31,7 @@ short version of this in a header comment; this is the map.
 | `.github/dco.yml` | dco2 app behaviour, if the app is installed |
 | `versions.env` | Every tool version pin, read by both the Taskfile and CI |
 | `.typos.toml`, `.yamllint`, `.golangci.yaml` | Linter configuration |
-| `release-please-config.json`, `.release-please-manifest.json`, `version.txt` | Release state |
+| `.release-please/config-app.json`, `.release-please/manifest-app.json`, `version.txt` | Release state. The directory is excluded from releases, so a second release line (a chart, say) can exclude the app line's state the same way |
 | `optional/renovate.json` | Renovate config, as an alternative to Dependabot |
 
 ## Scripts
@@ -59,7 +59,7 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
   misses its filter, and the check waits forever. Require `required-checks` instead.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and
   say so; `repo-lint` fails the build if one ever gains a checkout step.
-- **A `feat:` confined to an excluded path releases nothing.** `exclude-paths` is set to `docs` and `.github`,
+- **A `feat:` confined to an excluded path releases nothing.** `exclude-paths` is set to `docs`, `.github` and `.release-please`,
   and it is evaluated per file: one file outside pulls the whole commit back in.
 - **An open release pull request only refreshes when its body would change.** `always-update: true` in
-  `release-please-config.json` forces a rewrite on every push to `main`. Do not remove it.
+  `.release-please/config-app.json` forces a rewrite on every push to `main`. Do not remove it.
