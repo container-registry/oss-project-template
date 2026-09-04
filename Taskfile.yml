@@ -111,7 +111,9 @@ tasks:
       # user.name ending in [bot].
       - |
         for commit in $(git log --no-merges --format=%H origin/main..HEAD 2>/dev/null || git log --no-merges --format=%H -5); do
-          if ! grep -q "^Signed-off-by:" <<< "$(git log -1 --format=%B "$commit")"; then
+          # Same regex as the DCO workflow: a name and an address are required,
+          # so a bare "Signed-off-by:" fails here rather than on the pull request.
+          if ! grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" <<< "$(git log -1 --format=%B "$commit")"; then
             echo "ERROR: Commit $commit missing DCO sign-off"
             echo "Fix with: git commit --amend -s"
             exit 1
