@@ -4,6 +4,10 @@ version: '3'
 # rather than duplicating commands, so a green local run means a green CI run.
 # Tool versions come from versions.env.
 
+# Multi-line scripts stop at the first failing command instead of running on
+# and reporting the exit code of whatever happened to come last.
+set: [errexit, pipefail]
+
 dotenv: ['versions.env']
 
 vars:
@@ -107,7 +111,9 @@ tasks:
       # user.name ending in [bot].
       - |
         for commit in $(git log --no-merges --format=%H origin/main..HEAD 2>/dev/null || git log --no-merges --format=%H -5); do
-          if ! git log -1 --format=%B "$commit" | grep -q "^Signed-off-by:"; then
+          # Same regex as the DCO workflow: a name and an address are required,
+          # so a bare "Signed-off-by:" fails here rather than on the pull request.
+          if ! grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" <<< "$(git log -1 --format=%B "$commit")"; then
             echo "ERROR: Commit $commit missing DCO sign-off"
             echo "Fix with: git commit --amend -s"
             exit 1
