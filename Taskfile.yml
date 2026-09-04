@@ -182,8 +182,14 @@ tasks:
     desc: Print the platform list the image build and image:verify share
     # Nothing but the list, so a workflow can capture it into GITHUB_OUTPUT.
     silent: true
+    env:
+      # Reached through the environment rather than templated into the script,
+      # as in image:verify below: this value is what the release build is
+      # handed, and an override carrying shell metacharacters must not be able
+      # to alter the command.
+      PLATFORMS: '{{.IMAGE_PLATFORMS}}'
     cmds:
-      - printf '%s\n' '{{.IMAGE_PLATFORMS}}'
+      - printf '%s\n' "${PLATFORMS}"
 
   image:verify:
     desc: Verify a pushed image index carries exactly IMAGE_PLATFORMS (IMAGE_REF=name@sha256:... or name:tag)
@@ -255,9 +261,20 @@ tasks:
           # entries of the index; they are attachments, not platforms. An entry
           # carrying no usable platform is folded into unknown/unknown as well,
           # so it is ignored like an attestation rather than reported as an
-          # unexpected `?/?` manifest.
+          # unexpected `?/?` manifest. Each field is required to be a non-empty
+          # string: jq counts "" as true, so a bare truthiness test would emit
+          # `/amd64`, and `"/" + .variant` aborts jq outright if some registry
+          # ever serves a non-string variant.
           actual=$(printf '%s' "${raw}" \
-            | jq -r '.manifests[]? | .platform // {} | (if (.os and .architecture) then "\(.os)/\(.architecture)\(if .variant then "/" + .variant else "" end)" else "unknown/unknown" end) | select(. != "unknown/unknown")' \
+            | jq -r '
+                .manifests[]? | .platform // {}
+                | (if (.os | type) == "string" and .os != ""
+                      and (.architecture | type) == "string" and .architecture != ""
+                   then "\(.os)/\(.architecture)"
+                        + (if (.variant | type) == "string" and .variant != ""
+                           then "/" + .variant else "" end)
+                   else "unknown/unknown" end)
+                | select(. != "unknown/unknown")' \
             | normalize | sort)
           if [ -z "${actual}" ]; then
             echo "No platform manifests in ${reference}" >&2
