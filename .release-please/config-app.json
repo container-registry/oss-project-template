@@ -15,7 +15,14 @@
     "taskfile"
   ],
   "packages": {
-    ".": {}
+    ".": {
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "deploy/chart/Chart.yaml"
+        }
+      ]
+    }
   },
   "changelog-sections": [
     {

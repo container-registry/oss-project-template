@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import pathlib
 import re
 import subprocess
@@ -321,6 +322,13 @@ def remove_chart_pack(dry_run: bool) -> None:
     if pruned != text:
         versions.write_text(pruned.rstrip("\n") + "\n", encoding="utf-8")
         print("removed the Helm pack pins from versions.env")
+    # The chart's Chart.yaml is the only extra file the app release line
+    # carries, and it is about to stop existing.
+    config = ROOT / ".release-please/config-app.json"
+    data = json.loads(config.read_text(encoding="utf-8"))
+    if data["packages"]["."].pop("extra-files", None):
+        config.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        print("removed the chart extra-file from .release-please/config-app.json")
     labeler = ROOT / ".github/labeler.yml"
     text = labeler.read_text(encoding="utf-8")
     pruned = re.sub(r"component/chart:\n(?:  .*\n)*\n?", "", text, count=1)

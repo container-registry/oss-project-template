@@ -17,8 +17,8 @@ changelog and tag namespace, both driven by the same `Release Please` workflow o
 
 They are separate so a chart fix does not force an app release that ships an identical binary, and an app
 release does not republish the chart by itself. They are linked in one direction: the app line owns
-`appVersion` in `deploy/chart/Chart.yaml` through the `x-release-please-version` marker, the chart line owns
-`version`. Because the app release commit touches `Chart.yaml` and `chore` is visible in the chart changelog,
+`appVersion` in `deploy/chart/Chart.yaml`, which it reaches as an `extra-files` entry of its own package and
+rewrites through the `# x-release-please-version` marker on that line; the chart line owns `version`. Because the app release commit touches `Chart.yaml` and `chore` is visible in the chart changelog,
 every app release also opens or refreshes the chart release pull request with a `release X.Y.Z` entry, and
 merging that publishes a chart whose default image is the new app.
 <!-- pack:chart:end -->
