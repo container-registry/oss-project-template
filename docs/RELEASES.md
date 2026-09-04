@@ -176,17 +176,20 @@ cosign verify <CHART_REPOSITORY>/<name>@<digest> \
 The release notes of every `chart-v*` release carry these commands with the real values.
 
 <!-- pack:chart:end -->
-## The Release Pull Request Gets No Workflow Runs
+## The Release Pull Request's Checks Wait for Approval
 
-GitHub raises no workflow events for a ref pushed with `GITHUB_TOKEN`. release-please opens its
-`chore: release app X.Y.Z` pull request with exactly that token, so **that pull request gets zero workflow runs** -
-no CI, no hygiene, no labeler.
+release-please opens its `chore: release app X.Y.Z` pull request with `GITHUB_TOKEN`, so the actor behind the
+push is `github-actions[bot]`. GitHub creates the workflow runs for that pull request but holds every one of
+them at "action required" until a person approves them from the Actions tab or the pull request's checks
+panel. Nothing reports until then: no CI, no hygiene, no labeler. Measured on this repository: every run on a
+release pull request's head sits at `action_required`, and after approval the runs execute like any other
+pull request's (the DCO gate passes because it exempts bot commits).
 
-This matters the moment a branch ruleset requires a status check: the release pull request waits for a context
-that will never be reported and can never be merged. The shipped ruleset in `.github/settings.yml` therefore
-requires a pull request but requires no status checks.
+This matters the moment a branch ruleset requires a status check: the release pull request cannot be merged
+until someone approves its runs, which turns an automated release into two manual steps. The shipped ruleset in
+`.github/settings.yml` therefore requires a pull request but requires no status checks.
 
-To require checks, first make release-please open its pull request as a GitHub App:
+To require checks without the approval step, first make release-please open its pull request as a GitHub App:
 
 ```yaml
 - uses: actions/create-github-app-token@<sha>  # vX.Y.Z
@@ -202,7 +205,8 @@ To require checks, first make release-please open its pull request as a GitHub A
 
 Then require only the aggregate `required-checks` context from `hygiene.yml`. Never require a workflow that has
 a `paths:` or `paths-ignore:` filter directly: it does not report at all on a pull request that misses the
-filter, and the check waits forever.
+filter, and the check waits forever. Approving a held run once is enough to see the release pull request's
+gates pass; it is not a substitute for the App token, because the approval is needed on every release.
 
 Do not work around a blocked release pull request by pushing a tag by hand. The tag and
 `.release-please/manifest-app.json` then disagree permanently, and every later release inherits the mismatch.

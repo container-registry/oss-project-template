@@ -37,8 +37,8 @@ Never inline a build or test command into a workflow. Add it to `Taskfile.yml` a
 - **`.github/settings.yml` is applied to the live repository** on push to main. Treat it as production.
 - **Never require a path-filtered workflow as a status check.** It does not report on a pull request that misses
   its filter and the check waits forever. Require the aggregate `required-checks` context.
-- **The release pull request gets no workflow runs**, because GitHub raises no events for a ref pushed with
-  `GITHUB_TOKEN`. See `docs/RELEASES.md` before changing required checks.
+- **The release pull request's workflow runs wait for a person's approval**, because `github-actions[bot]`
+  pushed the branch. See `docs/RELEASES.md` before changing required checks.
 - Before adding a linter rule or a workflow, check `.github/scripts/repo-lint.py` — the repository-consistency
   checks live there rather than in shell, so they can be run and tested locally.
 
