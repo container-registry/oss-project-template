@@ -14,18 +14,25 @@ run-name: Publish Helm chart ${{ inputs.tag_name }}
 # hours), so the default proves the whole path end to end in a fresh
 # repository without a single secret, and is not where releases should live.
 # Point CHART_REPOSITORY at a real registry and supply credentials through the
-# CHART_REGISTRY_USERNAME and CHART_REGISTRY_PASSWORD secrets; the login step
-# runs only when a password is set. For GHCR, map them in release-please.yml:
+# CHART_REGISTRY_USERNAME and CHART_REGISTRY_PASSWORD secrets, which have to be
+# set together; the login steps run only when they are. For GHCR, map them in
+# release-please.yml:
 #
 #   secrets:
 #     CHART_REGISTRY_USERNAME: ${{ github.actor }}
 #     CHART_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
 #
-# and grant the caller `packages: write`. A registry that federates GitHub's
-# OIDC identity (Harbor does, see
+# and add `packages: write` to BOTH permission blocks, the caller's in
+# release-please.yml and the publish job's below. A called workflow gets the
+# caller's grant narrowed by its own, so a scope missing from either one is
+# missing from the token and GHCR answers the push with a 403. Neither block
+# carries it by default because the default destination takes no credentials.
+#
+# A registry that federates GitHub's OIDC identity (Harbor does, see
 # https://github.com/container-registry/harbor-workload-identity-federation)
-# needs no secret at all: mint the token with id-token: write and log in with
-# it as the password.
+# needs no stored secret, but it does need a login step this workflow does not
+# have: mint the token with id-token: write and hand it to the two login steps
+# as the password.
 #
 # The tag is the only input that decides what ships, so it is resolved to a
 # commit and validated against the GitHub Release before anything is checked
@@ -76,6 +83,7 @@ concurrency:
 env:
   # `secrets` cannot be used in a step-level `if`; an env value can.
   HAS_REGISTRY_CREDENTIALS: ${{ secrets.CHART_REGISTRY_PASSWORD != '' }}
+  HAS_REGISTRY_USERNAME: ${{ secrets.CHART_REGISTRY_USERNAME != '' }}
 
 jobs:
   publish:
@@ -142,6 +150,12 @@ jobs:
           ALLOWLIST: ${{ vars.CHART_REGISTRY_ALLOWLIST }}
         run: |
           set -euo pipefail
+          # Half a credential pair skips the login and fails at the push
+          # instead, with a 401 that says nothing about the cause.
+          if [ "${HAS_REGISTRY_USERNAME}" != "${HAS_REGISTRY_CREDENTIALS}" ]; then
+            echo "::error::CHART_REGISTRY_USERNAME and CHART_REGISTRY_PASSWORD must be set together; only one of them is."
+            exit 1
+          fi
           configured="$(echo "${CONFIGURED:-$DEFAULT}" | tr '[:upper:]' '[:lower:]')"
           repository="$(echo "${OVERRIDE:-$configured}" | tr '[:upper:]' '[:lower:]')"
           host="${repository%%/*}"
@@ -261,14 +275,15 @@ jobs:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
           set -euo pipefail
+          body="$(gh release view "${TAG_NAME}" --json body -q .body)"
           # Idempotent: a re-run must not stack another section.
-          if gh release view "${TAG_NAME}" --json body -q .body | grep -q '^## Install$'; then
+          if grep -q '^## Install$' <<< "${body}"; then
             echo "Release notes already carry the install section; skipping."
             exit 0
           fi
           app_version="$(awk '/^appVersion:/ {print $2; exit}' deploy/chart/Chart.yaml | tr -d '"')"
           {
-            gh release view "${TAG_NAME}" --json body -q .body
+            printf '%s\n' "${body}"
             echo ""
             echo "---"
             echo ""
