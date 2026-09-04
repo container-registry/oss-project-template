@@ -67,11 +67,14 @@ tasks:
           else
             echo "{{.CT_SHA256_LINUX_AMD64}}  ${work}/ct.tar.gz" | shasum -a 256 -c -
           fi
-          # Extract to a private name and rename into place: two concurrent
-          # runs would otherwise let one truncate the file the other is
-          # reading, which reads as drift.
-          tar -xzOf "${work}/ct.tar.gz" etc/lintconf.yaml > "${cache}/.lintconf.$$"
-          mv -f "${cache}/.lintconf.$$" "${cache}/lintconf.yaml"
+          # Stage through mktemp and rename into place. The rename keeps a
+          # concurrent run from reading a half-written file, and mktemp is
+          # what stops a redirect into a predictable name from following a
+          # symlink planted in a world-writable cache directory.
+          staged="$(mktemp "${cache}/.lintconf.XXXXXX")"
+          trap 'rm -rf "${work}" "${staged}"' EXIT
+          tar -xzOf "${work}/ct.tar.gz" etc/lintconf.yaml > "${staged}"
+          mv -f "${staged}" "${cache}/lintconf.yaml"
         fi
         upstream="${cache}/lintconf.yaml"
       fi
