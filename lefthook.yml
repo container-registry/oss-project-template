@@ -38,9 +38,11 @@ commit-msg:
         fi
     dco-signoff:
       run: |
-        # Same regex as dco.yml and `task dco-check`: a bare trailer has to
-        # fail here rather than on the pull request.
-        if ! grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" {1}; then
+        # Same extraction and regex as dco.yml and `task dco-check`; keep in sync.
+        # ^# lines go first: git has not stripped them when commit-msg runs, so
+        # they would look like the final paragraph.
+        trailers=$(grep -v '^#' {1} | awk '/^[[:space:]]*$/ {blank=1; next} {if (blank) {block=""; blank=0} block = block $0 "\n"} END {printf "%s", block}')
+        if ! printf '%s' "$trailers" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
           echo "ERROR: Missing DCO sign-off with a name and an address. Use 'git commit -s'"
           exit 1
         fi
