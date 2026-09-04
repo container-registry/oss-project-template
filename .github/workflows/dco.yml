@@ -63,9 +63,10 @@ jobs:
             [ -n "$entry" ] || continue
             sha=${entry%%:*}
             message=$(printf '%s' "${entry#*:}" | base64 -d)
-            # Requires a name and an address, not just the trailer key: a
-            # bare "Signed-off-by:" line satisfied the previous check.
-            if ! printf '%s\n' "$message" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
+            # Final paragraph only: a Signed-off-by inside a quoted upstream
+            # body is not a trailer, and a bare "Signed-off-by:" is not one.
+            trailers=$(printf '%s\n' "$message" | awk '/^[[:space:]]*$/ {blank=1; next} {if (blank) {block=""; blank=0} block = block $0 "\n"} END {printf "%s", block}')
+            if ! printf '%s' "$trailers" | grep -qE "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$"; then
               echo "::error::Missing DCO sign-off: $sha $(printf '%s\n' "$message" | head -1)"
               missing=1
             fi
