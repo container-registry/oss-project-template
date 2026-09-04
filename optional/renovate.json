@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "//": "Two ways to use this. (1) Replace Dependabot: move it to the repository root and delete .github/dependabot.yml; running both on the same ecosystem produces duplicate pull requests. (2) Complement Dependabot: move it to the root, keep dependabot.yml, and set \"enabledManagers\": [\"custom.regex\"] so Renovate touches only versions.env, which Dependabot cannot read. Renovate needs its GitHub App installed. Either way, a bump of a checksum-pinned tool (TASK, TYPOS, ACTIONLINT) fails hygiene until the *_SHA256_* lines are updated in the Renovate pull request; that failure is the reminder.",
+  "//": "Two ways to use this. (1) Replace Dependabot: move it to the repository root and delete .github/dependabot.yml; running both on the same ecosystem produces duplicate pull requests. (2) Complement Dependabot: move it to the root, keep dependabot.yml, and set \"enabledManagers\": [\"custom.regex\"] so Renovate touches only versions.env, which Dependabot cannot read. Renovate needs its GitHub App installed. Either way, a bump of a checksum-pinned tool (TASK, TYPOS, ACTIONLINT) fails where that tool is installed until the *_SHA256_* lines are updated in the Renovate pull request; that failure is the reminder.",
   "extends": [
     "config:recommended",
     ":semanticCommits",
