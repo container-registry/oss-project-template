@@ -177,6 +177,11 @@ tasks:
       vars: [IMAGE_REF]
     vars:
       PLATFORMS: '{{.PLATFORMS | default .IMAGE_PLATFORMS}}'
+    env:
+      # Reached through the environment rather than templated into the script,
+      # so a value containing shell metacharacters cannot alter the command.
+      IMAGE_REF: '{{.IMAGE_REF}}'
+      PLATFORMS: '{{.PLATFORMS}}'
     preconditions:
       - sh: docker buildx version >/dev/null 2>&1
         msg: docker buildx is required to inspect a published image index
@@ -189,17 +194,27 @@ tasks:
       # be signed and announced as multi-arch.
       - cmd: |
           set -euo pipefail
-          reference='{{.IMAGE_REF}}'
-          # containerd's platform normalisation: arm64 and arm64/v8 are the
-          # same platform, and a bare arm means arm/v7. Applied to both sides,
-          # so an index entry that inherited a variant from its base image
-          # still matches the platform string the build was asked for.
+          reference="${IMAGE_REF}"
+          # containerd's platform normalisation, which buildx applies to
+          # --platform before it writes the index: aarch64 and x86_64 are
+          # aliases, a bare arm means arm/v7, and arm64/v8 is arm64. Applied to
+          # both sides, so an index entry that inherited a variant from its base
+          # image, or an alias the build was legitimately asked for, still
+          # matches.
           normalize() {
-            sed -e 's#^linux/arm64/v8$#linux/arm64#' -e 's#^linux/arm$#linux/arm/v7#'
+            sed -E \
+              -e 's#^linux/(aarch64|arm64)#linux/arm64#' \
+              -e 's#^linux/(x86_64|x86-64|amd64)#linux/amd64#' \
+              -e 's#^linux/i386$#linux/386#' \
+              -e 's#^linux/armhf$#linux/arm/v7#' \
+              -e 's#^linux/armel$#linux/arm/v6#' \
+              -e 's#^linux/arm64/v?8$#linux/arm64#' \
+              -e 's#^linux/arm$#linux/arm/v7#' \
+              -e 's#^linux/arm/([5-8])$#linux/arm/v\1#'
           }
           # grep exits 1 on an all-empty list, which errexit would turn into a
           # silent abort before the guard below can say what is wrong.
-          expected=$(printf '%s' '{{.PLATFORMS}}' | tr ',' '\n' | tr -d '[:blank:]' | grep -v '^$' | normalize | sort -u || true)
+          expected=$(printf '%s' "${PLATFORMS}" | tr ',' '\n' | tr -d '[:blank:]' | grep -v '^$' | normalize | sort -u || true)
           if [ -z "${expected}" ]; then
             echo "No expected platforms given (PLATFORMS/IMAGE_PLATFORMS is empty)" >&2
             exit 1
