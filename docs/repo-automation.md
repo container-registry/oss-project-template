@@ -37,7 +37,7 @@ short version of this in a header comment; this is the map.
 | `taskfile/helm.yml`, `taskfile/ct-lintconf.yaml` | The chart's tasks under `task helm:*`, and the chart-testing lint config that tolerates release-please's `# x-release-please-version` stamp |
 | `deploy/chart/` | The Helm chart, its tests, schema, changelog and Artifact Hub metadata |
 | `.release-please/config-chart.json`, `.release-please/manifest-chart.json` | The chart release line's state |
-| `optional/renovate.json` | Renovate config: a replacement for Dependabot, or a complement limited to `versions.env` |
+| `optional/renovate.json` | Renovate config: a replacement for Dependabot, or a complement limited to `versions.env` and the base image digest |
 
 ## Scripts
 
