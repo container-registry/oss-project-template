@@ -102,16 +102,11 @@ jobs:
           ref: ${{ steps.release.outputs.sha }}
           persist-credentials: false
 
-      # Task comes from the checkout above; Go is not needed for this. It is
-      # installed before the build because the build reads its platform list
-      # from the Taskfile.
+      # Must stay above the build: it installs the Task the next step needs.
       - uses: ./.github/actions/setup
         with:
           go: "false"
 
-      # Taskfile.yml is the only definition of the platform set: the build
-      # below uses what this prints and image:verify asserts the same variable,
-      # so there is no second list here to drift from the one that ships.
       - name: Read the build platforms from the Taskfile
         id: platforms
         run: |
@@ -160,9 +155,8 @@ jobs:
           sbom: false        # replaced by the syft attestation below
 
       # Reads the index back from the registry and fails on a missing,
-      # unexpected or duplicated platform, before anything is signed. PLATFORMS
-      # is left unset on purpose so the assertion defaults to the Taskfile's
-      # IMAGE_PLATFORMS, the same value the build was given.
+      # unexpected or duplicated platform, before anything is signed.
+      # PLATFORMS is unset on purpose: the assertion must come from the Taskfile.
       - name: Verify the published platforms
         env:
           IMAGE_REF: ${{ steps.target.outputs.image }}@${{ steps.build.outputs.digest }}

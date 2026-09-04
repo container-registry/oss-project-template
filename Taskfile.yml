@@ -17,9 +17,8 @@ includes:
     dir: .
 
 vars:
-  # The only definition of the platform set. publish-image.yml reads it back
-  # through `task image:platforms` for the build and lets image:verify default
-  # to it for the assertion, so there is no second copy to drift from.
+  # The only definition of the platform set; publish-image.yml reads it back
+  # rather than keeping a copy that could drift from what ships.
   IMAGE_PLATFORMS: linux/amd64,linux/arm64
   RELEASE_BINARY: '{{.RELEASE_BINARY | default "app"}}'
   RELEASE_DIST: '{{.RELEASE_DIST | default "dist"}}'
@@ -183,10 +182,7 @@ tasks:
     # Nothing but the list, so a workflow can capture it into GITHUB_OUTPUT.
     silent: true
     env:
-      # Reached through the environment rather than templated into the script,
-      # as in image:verify below: this value is what the release build is
-      # handed, and an override carrying shell metacharacters must not be able
-      # to alter the command.
+      # Via env, not templated: an override with shell metacharacters would run.
       PLATFORMS: '{{.IMAGE_PLATFORMS}}'
     cmds:
       - printf '%s\n' "${PLATFORMS}"
@@ -258,13 +254,9 @@ tasks:
           # Keyed like a buildx platform string, os/arch with the variant when
           # there is one, so linux/arm/v6 and linux/arm/v7 are two platforms.
           # buildx records provenance and SBOM attestations as unknown/unknown
-          # entries of the index; they are attachments, not platforms. An entry
-          # carrying no usable platform is folded into unknown/unknown as well,
-          # so it is ignored like an attestation rather than reported as an
-          # unexpected `?/?` manifest. Each field is required to be a non-empty
-          # string: jq counts "" as true, so a bare truthiness test would emit
-          # `/amd64`, and `"/" + .variant` aborts jq outright if some registry
-          # ever serves a non-string variant.
+          # entries of the index; they are attachments, not platforms.
+          # Do not simplify the field tests: jq counts "" as true, so `.os` alone
+          # emits `/amd64`, and `"/" + .variant` aborts jq on a non-string variant.
           actual=$(printf '%s' "${raw}" \
             | jq -r '
                 .manifests[]? | .platform // {}
