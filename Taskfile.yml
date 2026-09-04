@@ -255,18 +255,17 @@ tasks:
           # there is one, so linux/arm/v6 and linux/arm/v7 are two platforms.
           # buildx records provenance and SBOM attestations as unknown/unknown
           # entries of the index; they are attachments, not platforms.
-          # Do not simplify the field tests: jq counts "" as true, so `.os` alone
-          # emits `/amd64`, and `"/" + .variant` aborts jq on a non-string variant.
+          # Filter the fields, not the joined key, or an attestation carrying a
+          # variant slips through; "" counts as true and "/" + 7 aborts jq.
           actual=$(printf '%s' "${raw}" \
             | jq -r '
                 .manifests[]? | .platform // {}
-                | (if (.os | type) == "string" and .os != ""
-                      and (.architecture | type) == "string" and .architecture != ""
-                   then "\(.os)/\(.architecture)"
-                        + (if (.variant | type) == "string" and .variant != ""
-                           then "/" + .variant else "" end)
-                   else "unknown/unknown" end)
-                | select(. != "unknown/unknown")' \
+                | select((.os | type) == "string" and .os != ""
+                         and (.architecture | type) == "string" and .architecture != "")
+                | select(.os != "unknown" or .architecture != "unknown")
+                | "\(.os)/\(.architecture)"
+                  + (if (.variant | type) == "string" and .variant != ""
+                     then "/" + .variant else "" end)' \
             | normalize | sort)
           if [ -z "${actual}" ]; then
             echo "No platform manifests in ${reference}" >&2
