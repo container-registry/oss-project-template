@@ -1,7 +1,7 @@
 ---
 name: Publish Image
 
-# What: Builds, pushes, signs and attests the container image.
+# What: Builds, pushes, verifies, signs and attests the container image.
 # Fires on: called by release-please.yml after a release is created.
 # Needs: nothing for GHCR. Another registry needs a login step and its credentials.
 # Safe to delete if: the project publishes no container image. Remove the caller in release-please.yml too.
@@ -38,6 +38,11 @@ on:
         value: ${{ jobs.publish.outputs.image }}
 
 permissions: {}
+
+env:
+  # One definition for the build and for the verification of what was pushed;
+  # keep it equal to IMAGE_PLATFORMS in Taskfile.yml.
+  IMAGE_PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   publish:
@@ -85,7 +90,7 @@ jobs:
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.IMAGE_PLATFORMS }}
           push: true
           tags: |
             ${{ steps.target.outputs.image }}:${{ inputs.tag_name }}
@@ -94,6 +99,18 @@ jobs:
             VERSION=${{ inputs.tag_name }}
           provenance: false  # replaced by the attestation below
           sbom: false        # replaced by the syft attestation below
+
+      # Task comes from the checkout above; Go is not needed for this.
+      - uses: ./.github/actions/setup
+        with:
+          go: "false"
+
+      # Reads the index back from the registry and fails on a missing,
+      # unexpected or duplicated platform, before anything is signed.
+      - name: Verify the published platforms
+        env:
+          IMAGE_REF: ${{ steps.target.outputs.image }}@${{ steps.build.outputs.digest }}
+        run: task image:verify IMAGE_REF="${IMAGE_REF}" PLATFORMS="${IMAGE_PLATFORMS}"
 
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
