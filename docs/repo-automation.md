@@ -32,7 +32,7 @@ short version of this in a header comment; this is the map.
 | `versions.env` | Every tool version pin, read by both the Taskfile and CI |
 | `.typos.toml`, `.yamllint`, `.golangci.yaml` | Linter configuration |
 | `.release-please/config-app.json`, `.release-please/manifest-app.json`, `version.txt` | Release state. The directory is excluded from releases, so a second release line (a chart, say) can exclude the app line's state the same way |
-| `optional/renovate.json` | Renovate config, as an alternative to Dependabot |
+| `optional/renovate.json` | Renovate config: a replacement for Dependabot, or a complement limited to `versions.env` |
 
 ## Scripts
 

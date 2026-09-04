@@ -1,42 +1,62 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "//": "Alternative to .github/dependabot.yml. Move it to the repository root and delete dependabot.yml; running both produces duplicate pull requests. Renovate needs its GitHub App installed, which Dependabot does not, but it is the only one of the two that can keep versions.env in sync.",
+  "//": "Two ways to use this. (1) Replace Dependabot: move it to the repository root and delete .github/dependabot.yml; running both on the same ecosystem produces duplicate pull requests. (2) Complement Dependabot: move it to the root, keep dependabot.yml, and set \"enabledManagers\": [\"custom.regex\"] so Renovate touches only versions.env, which Dependabot cannot read. Renovate needs its GitHub App installed. Either way, a bump of a checksum-pinned tool (TASK, TYPOS, ACTIONLINT) fails where that tool is installed until the *_SHA256_* lines are updated in the Renovate pull request; that failure is the reminder.",
   "extends": [
     "config:recommended",
     ":semanticCommits",
     ":dependencyDashboard"
   ],
-  "labels": ["dependencies"],
+  "labels": [
+    "dependencies"
+  ],
   "prConcurrentLimit": 5,
   "vulnerabilityAlerts": {
-    "labels": ["dependencies", "security"],
-    "schedule": ["at any time"]
+    "labels": [
+      "dependencies",
+      "security"
+    ],
+    "schedule": [
+      "at any time"
+    ]
   },
   "packageRules": [
     {
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "semanticCommitType": "ci",
-      "addLabels": ["component/ci"],
+      "addLabels": [
+        "component/ci"
+      ],
       "groupName": "github actions"
     },
     {
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "semanticCommitType": "fix",
       "groupName": "go minor and patch"
     },
     {
-      "matchUpdateTypes": ["major"],
+      "matchUpdateTypes": [
+        "major"
+      ],
       "dependencyDashboardApproval": true
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Tool pins in versions.env, annotated with a renovate comment",
-      "managerFilePatterns": ["/(^|/)versions\\.env$/"],
+      "description": "Tool pins in versions.env, annotated with a renovate comment. extractVersion= handles tags that carry more than the version, such as helm-v1.2.3",
+      "managerFilePatterns": [
+        "/(^|/)versions\\.env$/"
+      ],
       "matchStrings": [
-        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+depName=(?<depName>[^\\s]+?)(?:\\s+versioning=(?<versioning>[^\\s]+?))?\\s*\\n[A-Z0-9_]+=v?(?<currentValue>[^\\s]+)"
+        "#\\s*renovate:\\s*datasource=(?<datasource>[a-z-]+?)\\s+depName=(?<depName>[^\\s]+?)(?:\\s+versioning=(?<versioning>[^\\s]+?))?(?:\\s+extractVersion=(?<extractVersion>[^\\s]+?))?\\s*\\n[A-Z0-9_]+=v?(?<currentValue>[^\\s]+)"
       ],
       "versioningTemplate": "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
     }

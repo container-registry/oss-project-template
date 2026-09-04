@@ -3,8 +3,10 @@
 # SHA pins current: pinning without an updater just means pinning to something
 # old, and Dependabot rewrites the SHA and the version comment together.
 #
-# Prefer optional/renovate.json instead if the project wants grouped updates
-# or needs versions.env kept in sync. Do not run both.
+# versions.env is the one thing Dependabot cannot read. optional/renovate.json
+# covers it, either as a replacement for this file or beside it with Renovate
+# limited to the versions.env manager. That file explains both; do not run the
+# two on the same ecosystem.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -18,6 +20,11 @@ updates:
     labels: [dependencies, component/ci]
     commit-message:
       prefix: ci
+    # One pull request per week for every action bump: they are reviewed the
+    # same way (SHA, tag comment, changelog) and land as one ci: commit.
+    groups:
+      github-actions:
+        patterns: ['*']
 
   - package-ecosystem: gomod
     directory: /
