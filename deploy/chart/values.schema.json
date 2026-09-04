@@ -59,6 +59,7 @@
     },
     "livenessProbe": {"$ref": "#/$defs/httpProbe"},
     "readinessProbe": {"$ref": "#/$defs/httpProbe"},
+    "args": {"type": "array", "items": {"type": "string"}},
     "extraEnv": {
       "type": "array",
       "items": {

@@ -76,6 +76,27 @@ tests:
       - isNull:
           path: spec.selector.matchLabels.team
 
+  - it: refuses a commonLabel that would shadow a selector label
+    set:
+      commonLabels:
+        app.kubernetes.io/name: something-else
+    asserts:
+      - failedTemplate: {}
+
+  - it: passes the demo image its serve argument by default
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].args
+          value:
+            - -serve
+
+  - it: omits args when they are emptied
+    set:
+      args: []
+    asserts:
+      - isNull:
+          path: spec.template.spec.containers[0].args
+
   - it: omits the probes when disabled
     set:
       livenessProbe.enabled: false

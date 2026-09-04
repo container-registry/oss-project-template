@@ -63,7 +63,7 @@ def check_yaml_loads(errors: list[str]) -> None:
     for path in _files(".yml", ".yaml"):
         # Helm templates are Go templates that only become YAML when rendered;
         # chart-ci.yml renders and lints them.
-        if "deploy/chart/templates" in path.as_posix():
+        if path.is_relative_to(ROOT / "deploy/chart/templates"):
             continue
         try:
             yaml.safe_load(path.read_text(encoding="utf-8"))

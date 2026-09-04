@@ -103,33 +103,46 @@ tasks:
   trivy:
     desc: Scan the rendered manifests for misconfigurations
     cmds:
-      - helm template test {{.CHART_DIR}} > {{.CHART_DIR}}/.trivy-manifests.yaml
-      - defer: rm -f {{.CHART_DIR}}/.trivy-manifests.yaml
+      # Rendered outside the chart: an interrupted run that leaves the dump
+      # behind must not put it where `helm package` would ship it.
+      - mkdir -p "${TMPDIR:-/tmp}/chart-trivy"
+      - helm template test {{.CHART_DIR}} > "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml"
+      - defer: rm -rf "${TMPDIR:-/tmp}/chart-trivy"
       - |
         if command -v trivy >/dev/null 2>&1; then
-          trivy config {{.CHART_DIR}}/.trivy-manifests.yaml \
+          trivy config "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml" \
             --ignorefile {{.CHART_DIR}}/.trivyignore --severity HIGH,CRITICAL --exit-code 1
         else
-          docker run --rm -v "$(pwd)/{{.CHART_DIR}}":/chart \
+          docker run --rm -v "${TMPDIR:-/tmp}/chart-trivy":/scan -v "$(pwd)/{{.CHART_DIR}}":/chart \
             aquasec/trivy:{{.TRIVY_VERSION}} \
-            config /chart/.trivy-manifests.yaml \
+            config /scan/manifests.yaml \
             --ignorefile /chart/.trivyignore --severity HIGH,CRITICAL --exit-code 1
         fi
 
   trivy:report:
-    desc: Trivy misconfiguration scan with a SARIF report (TRIVY_SARIF=path)
+    desc: Trivy misconfiguration scan with a SARIF report (TRIVY_SARIF=path relative to the repository root)
     cmds:
-      - helm template test {{.CHART_DIR}} > {{.CHART_DIR}}/.trivy-manifests.yaml
-      - defer: rm -f {{.CHART_DIR}}/.trivy-manifests.yaml
+      # The Docker fallback writes through a mount of the repository root, so
+      # a path outside it would land somewhere else than the local binary
+      # writes it.
+      - |
+        case "{{.TRIVY_SARIF}}" in
+          /*|../*|*/../*)
+            echo "TRIVY_SARIF must be relative to the repository root, got '{{.TRIVY_SARIF}}'." >&2
+            exit 1 ;;
+        esac
+      - mkdir -p "${TMPDIR:-/tmp}/chart-trivy"
+      - helm template test {{.CHART_DIR}} > "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml"
+      - defer: rm -rf "${TMPDIR:-/tmp}/chart-trivy"
       - |
         if command -v trivy >/dev/null 2>&1; then
-          trivy config {{.CHART_DIR}}/.trivy-manifests.yaml \
+          trivy config "${TMPDIR:-/tmp}/chart-trivy/manifests.yaml" \
             --ignorefile {{.CHART_DIR}}/.trivyignore \
             --severity HIGH,CRITICAL --format sarif --output {{.TRIVY_SARIF}}
         else
-          docker run --rm -v "$(pwd)/{{.CHART_DIR}}":/chart -v "$(pwd)":/out \
+          docker run --rm -v "${TMPDIR:-/tmp}/chart-trivy":/scan -v "$(pwd)/{{.CHART_DIR}}":/chart -v "$(pwd)":/out \
             aquasec/trivy:{{.TRIVY_VERSION}} \
-            config /chart/.trivy-manifests.yaml \
+            config /scan/manifests.yaml \
             --ignorefile /chart/.trivyignore \
             --severity HIGH,CRITICAL --format sarif --output /out/{{.TRIVY_SARIF}}
         fi

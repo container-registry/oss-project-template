@@ -33,7 +33,9 @@ scalar() {
 
 chart_name="$(scalar "${chart_yaml}" name)"
 app_version="${APP_VERSION:-$(scalar "${chart_yaml}" appVersion)}"
-image_repository="${IMAGE_REPOSITORY:-$(awk -F'[:[:space:]]+' '$1 == "" && $2 == "repository" { gsub(/["'"'"']/, "", $3); print $3; exit }' "${values_yaml}")}"
+# Not `scalar`: a repository may carry a registry port, and splitting the line
+# on every colon would cut the reference in half at it.
+image_repository="${IMAGE_REPOSITORY:-$(awk '/^[[:space:]]+repository:[[:space:]]/ { gsub(/["'"'"']/, "", $2); print $2; exit }' "${values_yaml}")}"
 
 if [[ ! "${chart_name}" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
   echo "Unusable chart name read from ${chart_yaml}: '${chart_name}'" >&2
@@ -43,7 +45,11 @@ if [[ ! "${app_version}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
   echo "Unusable appVersion: '${app_version}'" >&2
   exit 1
 fi
-if [[ ! "${image_repository}" =~ ^[a-z0-9][a-z0-9._/-]*$ ]]; then
+# The OCI reference grammar: an optional host with an optional port, then
+# path components. A character class alone would accept `foo/`, `foo//bar` and
+# `foo/.bar`, none of which a registry can serve.
+component='[a-z0-9]+(([._]|__|[-]+)[a-z0-9]+)*'
+if [[ ! "${image_repository}" =~ ^${component}(:[0-9]+)?(/${component})*$ ]]; then
   echo "Unusable image repository: '${image_repository}'" >&2
   exit 1
 fi

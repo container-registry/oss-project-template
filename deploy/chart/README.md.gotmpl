@@ -39,7 +39,10 @@ cosign verify \
 - Nothing is generated at render time, so Argo CD and Flux see no drift. CI
   renders the GitOps scenario twice and fails on any difference.
 - A closed `values.schema.json` rejects unknown or mistyped values before
-  anything reaches the cluster.
+  anything reaches the cluster. The exceptions are the values passed straight
+  through to Kubernetes, `podSecurityContext`, `securityContext`, `affinity`
+  and `tolerations`: they are typed as objects only, so that a Kubernetes
+  field the schema predates still works.
 - The defaults satisfy the restricted Pod Security Standard.
 
 Adding a value means touching three places: `values.yaml` (with a `# --`

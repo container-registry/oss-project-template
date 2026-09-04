@@ -88,6 +88,10 @@ readinessProbe:
   # -- Seconds between readiness probes.
   periodSeconds: 10
 
+# -- Container arguments. The template's demo image only stays up with `-serve`; empty this when `image.repository` points at your own service.
+args:
+  - -serve
+
 # -- Extra environment variables for the container, as a list of EnvVar objects.
 extraEnv: []
 

@@ -43,6 +43,12 @@ app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- with .Values.commonLabels }}
+{{- if or (hasKey . "app.kubernetes.io/name") (hasKey . "app.kubernetes.io/instance") }}
+{{- /* Repeating a selector key here emits it twice: the pod labels then no
+longer match the immutable Deployment selector and the API server rejects the
+release. Fail while the message can still name the cause. */}}
+{{- fail "commonLabels must not set app.kubernetes.io/name or app.kubernetes.io/instance: they are the Deployment selector" }}
+{{- end }}
 {{ toYaml . }}
 {{- end }}
 {{- end -}}
