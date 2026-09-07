@@ -21,7 +21,7 @@ short version of this in a header comment; this is the map.
 | `chart-ci.yml` | Lints, renders, unit-tests, scans and dry-run packages the Helm chart. Path-filtered, so never a required check. | nothing |
 | `publish-chart.yml` | Packages, pushes, signs and documents the chart for a `chart-v*` release. | nothing for ttl.sh; `CHART_REPOSITORY` and the registry secrets for a real registry |
 | `publish-image.yml` | Builds, pushes, verifies the platform set (`task image:verify`), signs and attests the container image, from the commit the release tag resolves to. | nothing for GHCR |
-| `pr-image.yml` | Builds, pushes and signs a preview image per pull request, `pr-<N>`, and comments the reference. In a native GitHub stack only the top pull request builds, tagged `stack-<n>` as well. | nothing for GHCR |
+| `pr-image.yml` | Builds, pushes, signs and SBOM-attests a preview image per pull request, `pr-<N>`, and comments the reference; the comment is marked outdated when a later push builds nothing. In a native GitHub stack only the top pull request builds, tagged `stack-<n>` as well. | nothing for GHCR |
 
 ## Configuration
 

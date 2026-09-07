@@ -59,9 +59,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           STACK_BASE_SHA: ${{ github.event.pull_request.stack.base.sha || '' }}
-          # Only inputs the Dockerfile consumes. Extend when the image copies
-          # more than the Go module and its pins.
+          # Only inputs the Dockerfile consumes: the root package it builds,
+          # the packages it can import, the module files and the pins. Extend
+          # when the image copies more than that.
           IMAGE_INPUTS: |
+            ^[^/]+\.go$
             ^cmd/
             ^internal/
             ^pkg/
@@ -172,11 +174,16 @@ jobs:
   pr-comment:
     name: Comment preview image ref
     needs: [changes, preview-image]
+    # Runs when the build was skipped or failed too: an earlier push may have
+    # left a comment whose digest no longer matches the head, and it must say so.
+    if: always() && needs.changes.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       pull-requests: write
     env:
+      BUILD_RESULT: ${{ needs.preview-image.result }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       IMAGE: ${{ needs.preview-image.outputs.image }}
       DIGEST: ${{ needs.preview-image.outputs.digest }}
       PREVIEW_TAG: pr-${{ github.event.pull_request.number }}
@@ -188,9 +195,38 @@ jobs:
         with:
           script: |
             const marker = '<!-- pr-preview-image -->'
-            const { IMAGE, DIGEST, PREVIEW_TAG, STACK_NUMBER, STACK_TAG } = process.env
+            const staleMarker = '<!-- pr-preview-image:stale -->'
+            const { BUILD_RESULT, HEAD_SHA, IMAGE, DIGEST, PREVIEW_TAG, STACK_NUMBER, STACK_TAG } = process.env
             const { owner, repo } = context.repo
             const issueNumber = context.payload.pull_request.number
+            const short = HEAD_SHA.slice(0, 7)
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: issueNumber, per_page: 100,
+            })
+            const existing = comments.find(c =>
+              c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker))
+
+            if (BUILD_RESULT !== 'success') {
+              // Nothing was ever published: nothing to correct.
+              if (!existing) return
+              const reason = BUILD_RESULT === 'skipped'
+                ? `no image input changed against the base at \`${short}\``
+                : `the preview build for \`${short}\` ${BUILD_RESULT}`
+              // Drop a previous notice, keep the rest of the old comment.
+              const previous = existing.body.split('\n')
+                .filter(line => line !== marker && !line.startsWith(staleMarker))
+                .join('\n').trimStart()
+              const body = [
+                marker,
+                `${staleMarker} > **Outdated:** ${reason}. The reference below is from an earlier revision of this pull request.`,
+                '',
+                previous,
+              ].join('\n')
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
+              return
+            }
+
             const ref = `${IMAGE}@${DIGEST}`
             // Fulcio records the workflow at the ref it ran from, refs/pull/N/merge.
             const identity =
@@ -218,7 +254,7 @@ jobs:
 
             const body = [
               marker,
-              'A preview image for this pull request is available:',
+              `A preview image for this pull request is available, built from \`${short}\`:`,
               '',
               '```',
               `${IMAGE}:${PREVIEW_TAG}`,
@@ -244,11 +280,6 @@ jobs:
               '```',
             ].join('\n')
 
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: issueNumber, per_page: 100,
-            })
-            const existing = comments.find(c =>
-              c.user?.login === 'github-actions[bot]' && c.body?.startsWith(marker))
             if (existing) {
               await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body })
               return
