@@ -74,8 +74,9 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
   path-filtered workflow runs for the top pull request only if *its own* diff matches, although the stack as a
   whole changes those paths. `pr-image.yml` therefore keeps its allowlist in a job, diffs against the stack
   base, and builds only from the top of the stack, whose head already contains every lower pull request. Pull
-  requests chained by hand (base set to another branch without `gh stack`) are not a stack to GitHub and match
-  no `branches: [main]` trigger at all.
+  requests chained by hand (base set to another branch without `gh stack`) are not a stack to GitHub: the bottom
+  one targets `main` and gets an ordinary preview of its own changes, the ones above it match no
+  `branches: [main]` trigger and get nothing.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and
   say so; `repo-lint` fails the build if one ever gains a checkout step.
 <!-- pack:chart:start -->

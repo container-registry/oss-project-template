@@ -23,7 +23,9 @@ on:
 permissions: {}
 
 concurrency:
-  group: pr-image-${{ github.event.pull_request.number }}
+  # Keyed by stack when stacked: a PR pushed on top of an in-flight top would
+  # otherwise let the older build finish last and repoint stack-<n> backwards.
+  group: pr-image-${{ github.event.pull_request.stack && format('stack-{0}', github.event.pull_request.stack.number) || github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -79,7 +81,9 @@ jobs:
             exit 0
           fi
           base="${STACK_BASE_SHA:-${PR_BASE_SHA}}"
-          changed="$(git diff --name-only "${base}...${HEAD_SHA}")"
+          # --no-renames: a rename out of the allowlist would otherwise show
+          # only its new path and hide that an image input went away
+          changed="$(git diff --name-only --no-renames "${base}...${HEAD_SHA}")"
           if grep -Ef <(printf '%s' "${IMAGE_INPUTS}") <<<"${changed}"; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
