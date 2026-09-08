@@ -23,9 +23,7 @@ on:
 permissions: {}
 
 concurrency:
-  # Keyed by stack when stacked: a PR pushed on top of an in-flight top would
-  # otherwise let the older build finish last and repoint stack-<n> backwards.
-  group: pr-image-${{ github.event.pull_request.stack && format('stack-{0}', github.event.pull_request.stack.number) || github.event.pull_request.number }}
+  group: pr-image-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -47,7 +45,6 @@ jobs:
     outputs:
       build: ${{ steps.diff.outputs.build }}
       stack_number: ${{ github.event.pull_request.stack.number || '' }}
-      stack_tag: ${{ github.event.pull_request.stack && format('stack-{0}', github.event.pull_request.stack.number) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -113,26 +110,14 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
-      - name: Resolve image name and tags
+      - name: Resolve image name
         id: target
         env:
           IMAGE: ghcr.io/${{ github.repository }}
-          PREVIEW_TAG: pr-${{ github.event.pull_request.number }}
-          STACK_TAG: ${{ needs.changes.outputs.stack_tag }}
         run: |
           set -euo pipefail
           # GHCR requires a lowercase path; repository names are not.
-          image="$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')"
-          tags="${image}:${PREVIEW_TAG}"
-          if [ -n "${STACK_TAG}" ]; then
-            tags="${tags}"$'\n'"${image}:${STACK_TAG}"
-          fi
-          {
-            echo "image=${image}"
-            echo "tags<<TAGS"
-            echo "${tags}"
-            echo "TAGS"
-          } >> "$GITHUB_OUTPUT"
+          echo "image=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4.3.0
 
@@ -149,7 +134,7 @@ jobs:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.target.outputs.tags }}
+          tags: ${{ steps.target.outputs.image }}:pr-${{ github.event.pull_request.number }}
           build-args: |
             VERSION=pr-${{ github.event.pull_request.number }}
           provenance: false  # a preview carries a signature and an SBOM, not release provenance
@@ -192,7 +177,6 @@ jobs:
       DIGEST: ${{ needs.preview-image.outputs.digest }}
       PREVIEW_TAG: pr-${{ github.event.pull_request.number }}
       STACK_NUMBER: ${{ needs.changes.outputs.stack_number }}
-      STACK_TAG: ${{ needs.changes.outputs.stack_tag }}
     steps:
       - name: Create or update the comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
@@ -200,7 +184,7 @@ jobs:
           script: |
             const marker = '<!-- pr-preview-image -->'
             const staleMarker = '<!-- pr-preview-image:stale -->'
-            const { BUILD_RESULT, HEAD_SHA, IMAGE, DIGEST, PREVIEW_TAG, STACK_NUMBER, STACK_TAG } = process.env
+            const { BUILD_RESULT, HEAD_SHA, IMAGE, DIGEST, PREVIEW_TAG, STACK_NUMBER } = process.env
             const { owner, repo } = context.repo
             const issueNumber = context.payload.pull_request.number
             const short = HEAD_SHA.slice(0, 7)
@@ -248,11 +232,11 @@ jobs:
                   '',
                   ...data.pull_requests.map((pr, i) => `${i + 1}. #${pr.number} ${pr.title}`),
                   '',
-                  `\`${IMAGE}:${STACK_TAG}\` always points at the latest build of the top of the stack. Lower pull requests get no image of their own; push a fix there and \`gh stack rebase && gh stack push\` to rebuild.`,
+                  'Lower pull requests get no image of their own; push a fix there and `gh stack rebase && gh stack push` to rebuild this one.',
                 ]
               } catch (error) {
                 core.warning(`Could not list stack #${STACK_NUMBER}: ${error.message}`)
-                stack = ['', `This pull request is the top of stack #${STACK_NUMBER}; the image contains the whole stack and is also tagged \`${STACK_TAG}\`.`]
+                stack = ['', `This pull request is the top of stack #${STACK_NUMBER}; the image contains the whole stack.`]
               }
             }
 
