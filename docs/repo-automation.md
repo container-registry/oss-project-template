@@ -74,8 +74,10 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
 - **A `paths` filter sees one pull request's slice, not its stack.** In a native GitHub stack (`gh stack`) a
   path-filtered workflow runs for the top pull request only if its own diff matches. `pr-image.yml` and
   `pr-chart.yml` keep their allowlist in a job and diff against the stack base; only the top of a stack
-  publishes. Pull requests chained by hand without `gh stack` are not a stack: the bottom one is an ordinary
-  pull request, the ones above it match no `branches: [main]` trigger.
+  publishes, on the `stacked` event (GitHub links the stack after opening its pull requests) and on every
+  push. `.github/actionlint.yaml` ignores actionlint's unknown-type error for `stacked`. Pull requests chained
+  by hand without `gh stack` are not a stack: the bottom one is an ordinary pull request, the ones above it
+  match no `branches: [main]` trigger.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and
   say so; `repo-lint` fails the build if one ever gains a checkout step.
 <!-- pack:chart:start -->

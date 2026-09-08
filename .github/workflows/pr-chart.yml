@@ -16,6 +16,9 @@ name: PR Preview Chart
 
 on:
   pull_request:
+    # `stacked`: GitHub opens the PRs of a stack before it links them, so
+    # `opened` never carries `pull_request.stack`; the link fires `stacked`.
+    types: [opened, synchronize, reopened, stacked]
     branches: [main]
 
 permissions: {}
@@ -63,6 +66,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           STACK_BASE_SHA: ${{ github.event.pull_request.stack.base.sha || '' }}
+          STACK_NUMBER: ${{ github.event.pull_request.stack.number || '' }}
+          EVENT_ACTION: ${{ github.event.action }}
           # Only inputs that reach the packaged chart.
           CHART_INPUTS: |
             ^deploy/chart/
@@ -70,6 +75,7 @@ jobs:
             ^\.github/scripts/chart-annotate-images\.sh$
         run: |
           set -euo pipefail
+          echo "event=${EVENT_ACTION} stack=${STACK_NUMBER:-none}"
           if [ ! -f deploy/chart/Chart.yaml ]; then
             echo "No chart. Skipping." >> "$GITHUB_STEP_SUMMARY"
             echo "build=false" >> "$GITHUB_OUTPUT"

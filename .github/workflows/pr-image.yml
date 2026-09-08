@@ -18,6 +18,9 @@ name: PR Preview Image
 
 on:
   pull_request:
+    # `stacked`: GitHub opens the PRs of a stack before it links them, so
+    # `opened` never carries `pull_request.stack`; the link fires `stacked`.
+    types: [opened, synchronize, reopened, stacked]
     branches: [main]
 
 permissions: {}
@@ -58,6 +61,8 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           STACK_BASE_SHA: ${{ github.event.pull_request.stack.base.sha || '' }}
+          STACK_NUMBER: ${{ github.event.pull_request.stack.number || '' }}
+          EVENT_ACTION: ${{ github.event.action }}
           # Only inputs the Dockerfile consumes: the root package it builds,
           # the packages it can import, the module files and the pins. Extend
           # when the image copies more than that.
@@ -72,6 +77,7 @@ jobs:
             ^\.github/workflows/pr-image\.yml$
         run: |
           set -euo pipefail
+          echo "event=${EVENT_ACTION} stack=${STACK_NUMBER:-none}"
           if [ ! -f Dockerfile ]; then
             echo "No Dockerfile. Skipping." >> "$GITHUB_STEP_SUMMARY"
             echo "build=false" >> "$GITHUB_OUTPUT"
