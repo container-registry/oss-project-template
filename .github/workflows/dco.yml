@@ -64,6 +64,8 @@ jobs:
             sha=${entry%%:*}
             message=$(printf '%s' "${entry#*:}" | base64 -d)
             # Final paragraph only: a sign-off quoted from an upstream body is not this committer's.
+            # stripspace falls back to '#' here: with no checkout there is no
+            # way to know the committer's core.commentChar.
             trailers=$(printf '%s\n' "$message" | git stripspace --strip-comments | awk '/^[[:space:]]*$/ {blank=1; next} {if (blank) {block=""; blank=0} block = block $0 "\n"} END {printf "%s", block}')
             if ! printf '%s' "$trailers" | grep -E "^Signed-off-by: .+ <[^<>@[:space:]]+@[^<>[:space:]]+>[[:space:]]*$" >/dev/null; then
               echo "::error::Missing DCO sign-off: $sha $(printf '%s\n' "$message" | head -1)"
