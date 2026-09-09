@@ -174,7 +174,9 @@ jobs:
           configured="$(echo "${CONFIGURED:-$DEFAULT}" | tr '[:upper:]' '[:lower:]')"
           repository="$(echo "${OVERRIDE:-$configured}" | tr '[:upper:]' '[:lower:]')"
           host="${repository%%/*}"
-          allowed="${ALLOWLIST:-${configured%%/*}}"
+          # Extends the configured host rather than replacing it, which is
+          # what the error below has always claimed.
+          allowed="${configured%%/*}${ALLOWLIST:+,${ALLOWLIST}}"
           ok=false
           for h in ${allowed//,/ }; do
             [ "${host}" = "${h}" ] && ok=true
