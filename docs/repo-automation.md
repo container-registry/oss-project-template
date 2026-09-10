@@ -21,6 +21,8 @@ short version of this in a header comment; this is the map.
 | `chart-ci.yml` | Lints, renders, unit-tests, scans and dry-run packages the Helm chart. Path-filtered, so never a required check. | nothing |
 | `publish-chart.yml` | Packages, pushes, signs and documents the chart for a `chart-v*` release. | nothing for ttl.sh; `CHART_REPOSITORY` and the registry secrets for a real registry |
 | `publish-image.yml` | Builds, pushes, verifies the platform set (`task image:verify`), signs and attests the container image, from the commit the release tag resolves to. | nothing for GHCR |
+| `pr-image.yml` | Builds, pushes, signs and SBOM-attests a preview image per pull request, `pr-<N>`, and comments the reference. Runs when the diff against `main` touches an image input; in a stack only for the top pull request. | nothing for GHCR |
+| `pr-chart.yml` | Packages, pushes and signs a preview chart per pull request, `X.Y.Z-pr.<N>`, and comments the install command. Same rules, chart inputs. | nothing for ttl.sh; `CHART_REPOSITORY` and the registry secrets for a real registry |
 
 ## Configuration
 
@@ -69,6 +71,13 @@ Use a fine-grained personal access token scoped to this repository, with **Admin
   making any check required.
 - **Never require a path-filtered workflow as a status check.** It does not report at all on a pull request that
   misses its filter, and the check waits forever. Require `required-checks` instead.
+- **A `paths` filter sees one pull request's slice, not its stack.** In a native GitHub stack (`gh stack`) a
+  path-filtered workflow runs for the top pull request only if its own diff matches. `pr-image.yml` and
+  `pr-chart.yml` keep their allowlist in a job and diff against the stack base; only the top of a stack
+  publishes, on the `stacked` event (GitHub links the stack after opening its pull requests) and on every
+  push. `.github/actionlint.yaml` ignores actionlint's unknown-type error for `stacked`. Pull requests chained
+  by hand without `gh stack` are not a stack: the bottom one is an ordinary pull request, the ones above it
+  match no `branches: [main]` trigger.
 - **`pull_request_target` workflows must never check out the pull request.** Three workflows use that trigger and
   say so; `repo-lint` fails the build if one ever gains a checkout step.
 <!-- pack:chart:start -->

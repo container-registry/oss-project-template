@@ -1,0 +1,6 @@
+# actionlint 1.7.12 does not know the `stacked` activity type of pull_request
+# yet (GitHub documents it for the webhook and honours it in workflows).
+paths:
+  .github/workflows/pr-*.yml:
+    ignore:
+      - 'invalid activity type "stacked" for "pull_request"'

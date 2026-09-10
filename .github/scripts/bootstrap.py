@@ -188,7 +188,8 @@ def substitute(values: dict[str, str], removed_packs: set[str], dry_run: bool) -
 GO_PACK = [
     "go.mod", "go.sum", "main.go", "main_test.go", "Dockerfile", ".golangci.yaml",
     ".github/workflows/ci.yml", ".github/workflows/release-assets.yml",
-    ".github/workflows/publish-image.yml", ".github/actions/setup",
+    ".github/workflows/publish-image.yml", ".github/workflows/pr-image.yml",
+    ".github/actions/setup",
     "tools/govulncheck-report", ".github/scripts/vulnerability-comment.sh",
 ]
 
@@ -222,7 +223,7 @@ def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
     # The automation reference documents files that no longer exist.
     doc = ROOT / "docs/repo-automation.md"
     if doc.exists() and not dry_run:
-        gone = ("ci.yml", "release-assets.yml", "publish-image.yml",
+        gone = ("ci.yml", "release-assets.yml", "publish-image.yml", "pr-image.yml",
                 ".golangci.yaml", "Dockerfile", "go.mod", "vulnerability-comment.sh")
         if not keep_setup_action:
             gone += (".github/actions/setup",)
@@ -259,6 +260,7 @@ def remove_go_pack(dry_run: bool, keep_setup_action: bool) -> None:
 CHART_PACK = [
     "deploy/chart", "taskfile/helm.yml", "taskfile/ct-lintconf.yaml",
     ".github/workflows/chart-ci.yml", ".github/workflows/publish-chart.yml",
+    ".github/workflows/pr-chart.yml",
     ".github/scripts/chart-annotate-images.sh",
     ".release-please/config-chart.json", ".release-please/manifest-chart.json",
 ]
@@ -317,7 +319,7 @@ def remove_jobs(rel: str, jobs: tuple[str, ...], dry_run: bool) -> None:
 def remove_chart_pack(dry_run: bool) -> None:
     """Remove the Helm chart pack and everything that would otherwise dangle."""
     remove_paths(CHART_PACK, dry_run)
-    prune_automation_doc(("chart-ci.yml", "publish-chart.yml", "taskfile/helm.yml", "ct-lintconf.yaml",
+    prune_automation_doc(("chart-ci.yml", "publish-chart.yml", "pr-chart.yml", "taskfile/helm.yml", "ct-lintconf.yaml",
                           "chart-annotate-images.sh", "config-chart.json", "deploy/chart"), dry_run)
     remove_jobs(".github/workflows/release-please.yml", ("release-please-chart", "publish-helm-chart"), dry_run)
     remove_jobs(".github/workflows/pr-title.yml", ("chart-scope-paths",), dry_run)
