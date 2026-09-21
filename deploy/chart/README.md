@@ -13,7 +13,7 @@ in its release notes.
 ```sh
 helm install oss-project-template \
   oci://CHART_REPOSITORY/oss-project-template \
-  --version 0.0.0
+  --version 0.1.0
 ```
 <!-- x-release-please-end -->
 
@@ -30,7 +30,7 @@ that was signed.
 
 <!-- x-release-please-start-version -->
 ```sh
-cosign verify CHART_REPOSITORY/oss-project-template:0.0.0 \
+cosign verify CHART_REPOSITORY/oss-project-template:0.1.0 \
   --certificate-identity-regexp '^https://github\.com/OWNER/REPO/\.github/workflows/publish-chart\.yml@' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
