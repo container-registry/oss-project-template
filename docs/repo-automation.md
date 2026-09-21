@@ -7,7 +7,7 @@ short version of this in a header comment; this is the map.
 
 | Workflow | What it does | Needs |
 |----------|--------------|-------|
-| `hygiene.yml` | Spelling, workflow lint, YAML lint, repository consistency, workflow security audit, action pin check, dependency review. Ends in a `required-checks` aggregate job. | nothing |
+| `hygiene.yml` | Workflow lint, YAML lint, repository consistency, workflow security audit, action pin check, dependency review. Ends in a `required-checks` aggregate job. | nothing |
 | `ci.yml` | Build, test, lint, tidy, licence check, vulnerability report, and a container image smoke test. Skips itself without `go.mod`. Vulnerabilities are reported in the job summary and as a sticky pull request comment listing the fixable ones; only a scan that produced no usable report fails. | nothing |
 | `codeql.yml` | Static analysis of the workflows and the Go code. | public repo, or Advanced Security |
 | `dco.yml` | Fails a pull request whose commits lack a sign-off. | nothing |
@@ -34,7 +34,7 @@ short version of this in a header comment; this is the map.
 | `.github/CODEOWNERS` | Automatic reviewer assignment |
 | `.github/dco.yml` | dco2 app behaviour, if the app is installed |
 | `versions.env` | Every tool version pin, read by both the Taskfile and CI |
-| `.typos.toml`, `.yamllint`, `.golangci.yaml` | Linter configuration |
+| `.yamllint`, `.golangci.yaml` | Linter configuration |
 | `.release-please/config-app.json`, `.release-please/manifest-app.json`, `version.txt` | Release state. The directory is excluded from releases, so a second release line (a chart, say) can exclude the app line's state the same way |
 | `taskfile/helm.yml`, `taskfile/ct-lintconf.yaml` | The chart's tasks under `task helm:*`, and the chart-testing lint config that tolerates release-please's `# x-release-please-version` stamp |
 | `deploy/chart/` | The Helm chart, its tests, schema, changelog and Artifact Hub metadata |

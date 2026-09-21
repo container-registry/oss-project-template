@@ -87,7 +87,7 @@ jobs:
         # Binaries rather than `docker run -v`: a bind mount resolves on the
         # Docker host, which is not the runner workspace when the daemon is
         # remote. Every archive is verified against the sha256 committed in
-        # versions.env, the same way hygiene.yml installs typos.
+        # versions.env, the same way hygiene.yml installs actionlint.
         run: |
           set -euo pipefail
           if [ "$(uname -m)" != "x86_64" ]; then

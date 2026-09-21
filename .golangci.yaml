@@ -1,6 +1,6 @@
 # golangci-lint v2 configuration (https://golangci-lint.run)
 #
-# A starting point, not a finished policy: `standard` plus misspell, so a new
+# A starting point, not a finished policy: the `standard` set, so a new
 # project is not fighting the linter on day one. Tighten it as the codebase
 # grows rather than shipping something an adopter turns off wholesale.
 ---
@@ -8,11 +8,6 @@ version: "2"
 
 linters:
   default: standard
-  enable:
-    - misspell
-  settings:
-    misspell:
-      locale: US
   exclusions:
     generated: lax
     presets:

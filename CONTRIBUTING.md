@@ -22,7 +22,7 @@ task check   # runs the same gates CI runs
 `task --list` shows everything available. Tool versions come from `versions.env`, so a local run and a CI run
 use the same binaries.
 
-The git hooks installed by `task setup` check spelling, the commit message format, and the sign-off before a
+The git hooks installed by `task setup` check the commit message format and the sign-off before a
 commit is created. They fail fast so CI does not have to.
 
 ## Vulnerabilities

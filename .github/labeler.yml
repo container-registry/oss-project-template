@@ -45,7 +45,6 @@ component/config:
           - 'config/**'
           - 'configs/**'
           - '.editorconfig'
-          - '.typos.toml'
           - '.yamllint'
           - 'versions.env'
 

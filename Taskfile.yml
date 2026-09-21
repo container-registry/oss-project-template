@@ -39,7 +39,6 @@ tasks:
     # container runtime and belong in CI, not in a pre-push hook.
     desc: Run the fast CI gates (everything except the image build and vuln scan)
     cmds:
-      - task: spellcheck
       - task: lint:yaml
       - task: lint:actions
       - task: lint:pins
@@ -53,11 +52,6 @@ tasks:
       - task: license-check
 
   # --- Language-neutral gates ---------------------------------------------
-
-  spellcheck:
-    desc: Spell check (mirrors the hygiene workflow)
-    cmds:
-      - typos --config .typos.toml
 
   lint:yaml:
     desc: Lint every YAML file
@@ -468,7 +462,6 @@ tasks:
   install-tools:
     desc: Install the CLI tools the checks need, at the pinned versions
     cmds:
-      - command -v typos >/dev/null || brew install typos-cli || cargo install typos-cli
       - command -v lefthook >/dev/null || brew install lefthook || go install github.com/evilmartians/lefthook@latest
       - command -v yamllint >/dev/null || pip install "yamllint==${YAMLLINT_VERSION}"
       # repo-lint parses YAML; yamllint pulls PyYAML in, but not necessarily
@@ -489,7 +482,6 @@ tasks:
       - |
         echo "task           $(task --version 2>/dev/null || echo -)"
         echo "TASK_VERSION   ${TASK_VERSION}"
-        echo "TYPOS          ${TYPOS_VERSION}"
         echo "ACTIONLINT     ${ACTIONLINT_VERSION}"
         echo "YAMLLINT       ${YAMLLINT_VERSION}"
         echo "GOLANGCILINT   ${GOLANGCILINT_VERSION:--}"
