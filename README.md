@@ -48,7 +48,7 @@ CHECKLIST.md, and then runs the consistency checks so a half-applied template fa
 
 ## Features
 
-- **Working CI on the first push.** Spelling, workflow lint, workflow security audit, YAML lint, dependency
+- **Working CI on the first push.** Workflow lint, workflow security audit, YAML lint, dependency
   review, and repository-consistency checks that keep the template's own rules enforced.
 - **A complete Go pack.** Build, race-enabled tests, lint, tidy check, licence check, vulnerability scan and a
   container image smoke test. It skips itself when there is no `go.mod`.

@@ -5,9 +5,6 @@
 pre-commit:
   parallel: true
   commands:
-    spellcheck:
-      glob: "*.{md,txt,yml,yaml}"
-      run: typos --config .typos.toml {staged_files}
     yamllint:
       glob: "*.{yml,yaml}"
       run: yamllint --strict {staged_files}
