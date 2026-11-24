@@ -321,7 +321,7 @@ def remove_chart_pack(dry_run: bool) -> None:
     remove_paths(CHART_PACK, dry_run)
     prune_automation_doc(("chart-ci.yml", "publish-chart.yml", "pr-chart.yml", "taskfile/helm.yml", "ct-lintconf.yaml",
                           "chart-annotate-images.sh", "config-chart.json", "deploy/chart"), dry_run)
-    remove_jobs(".github/workflows/release-please.yml", ("release-please-chart", "publish-helm-chart"), dry_run)
+    remove_jobs(".github/workflows/release-please.yml", ("release-please-chart", "release-notes-chart", "publish-helm-chart"), dry_run)
     remove_jobs(".github/workflows/pr-title.yml", ("chart-scope-paths",), dry_run)
 
     if dry_run:

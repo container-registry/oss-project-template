@@ -43,6 +43,7 @@ tasks:
       - task: lint:actions
       - task: lint:pins
       - task: lint:repo
+      - task: test:scripts
       - task: commit-lint
       - task: dco-check
       - task: build
@@ -67,6 +68,11 @@ tasks:
     desc: Check repository consistency (dangling references, label and release config drift)
     cmds:
       - python3 .github/scripts/repo-lint.py
+
+  test:scripts:
+    desc: Test the workflow scripts in .github/scripts
+    cmds:
+      - node --test .github/scripts/*.test.mjs
 
   lint:pins:
     desc: Check every action is pinned to a full SHA with a version comment

@@ -82,6 +82,9 @@ jobs:
       - name: Check repository consistency
         run: python3 .github/scripts/repo-lint.py
 
+      - name: Test workflow scripts
+        run: node --test .github/scripts/*.test.mjs
+
   zizmor:
     name: Audit Workflow Security
     runs-on: ubuntu-latest
