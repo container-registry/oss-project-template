@@ -28,14 +28,17 @@ merging that publishes a chart whose default image is the new app.
 1. Pull requests are squash-merged to `main` with a conventional title. The title becomes the commit that release-please evaluates.
 2. A push to `main` opens or updates a `chore: release app X.Y.Z` pull request.
 3. The release pull request updates the manifest, `CHANGELOG.md`, and the generic `version.txt` version file.
-4. Merging that pull request creates the `vX.Y.Z` tag and GitHub Release.
+4. Merging that pull request creates the `vX.Y.Z` tag and GitHub Release. `release-notes.yml` then puts
+   each pull request's `## Release Notes` section under its entry in the release (see
+   [CONTRIBUTING.md](../CONTRIBUTING.md#release-notes)).
 <!-- pack:chart:start -->
 5. The chart line does the same for commits under `deploy/chart/`: a `chore: release chart X.Y.Z` pull
    request bumps `.release-please/manifest-chart.json`, the chart changelog, `version` in `Chart.yaml` and the
    version in the chart `README.md`; merging it creates `chart-vX.Y.Z` and runs `publish-chart.yml`, which
    annotates `Chart.yaml` with the release image, packages the chart at that version, pushes it to
    `CHART_REPOSITORY`, signs it with cosign, pushes `artifacthub-repo.yml` as a sibling OCI artifact and
-   appends the install section to the release notes.
+   appends the install section to the release notes. `release-notes.yml` puts the pull request notes under
+   their entries first.
 <!-- pack:chart:end -->
 
 | Commit type | Version bump | Release notes |

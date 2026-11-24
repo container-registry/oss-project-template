@@ -67,6 +67,18 @@ jobs:
     with:
       tag_name: ${{ needs.release-please.outputs.tag_name }}
 
+  # Runs before the jobs that append to the release body, so two writers
+  # never race on it.
+  release-notes:
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: ./.github/workflows/release-notes.yml
+    with:
+      tag_name: ${{ needs.release-please.outputs.tag_name }}
+
   # The chart has its own release line scoped to deploy/chart by its own
   # config and manifest, so a chart fix does not force an app release and an
   # app release does not republish an unchanged chart. It is a SEPARATE
@@ -96,9 +108,20 @@ jobs:
   # Driven by the chart's own release line. The chart references the app image
   # by appVersion, which an earlier app release has already published, so this
   # does not wait on publish-image.
-  publish-helm-chart:
+  release-notes-chart:
     needs: [release-please-chart]
     if: ${{ needs.release-please-chart.outputs.release_created == 'true' }}
+    permissions:
+      contents: write
+      pull-requests: read
+    uses: ./.github/workflows/release-notes.yml
+    with:
+      tag_name: ${{ needs.release-please-chart.outputs.tag_name }}
+
+  publish-helm-chart:
+    needs: [release-please-chart, release-notes-chart]
+    # A failed notes step must not hold back the chart.
+    if: ${{ !cancelled() && needs.release-please-chart.outputs.release_created == 'true' }}
     permissions:
       # A reusable workflow is capped by the caller's grant; the publish job
       # needs contents: write for `gh release edit`.
@@ -118,8 +141,9 @@ jobs:
   document-artifacts:
     # publish-release-assets too: the body it writes tells people to verify
     # app-linux-amd64 and checksums.txt, which that job uploads.
-    needs: [release-please, publish-image, publish-release-assets]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    needs: [release-please, release-notes, publish-image, publish-release-assets]
+    # A failed notes step must not hold back the rest.
+    if: ${{ !cancelled() && needs.release-please.outputs.release_created == 'true' && needs.publish-image.result == 'success' && needs.publish-release-assets.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

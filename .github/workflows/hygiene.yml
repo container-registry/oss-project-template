@@ -82,6 +82,11 @@ jobs:
       - name: Check repository consistency
         run: python3 .github/scripts/repo-lint.py
 
+      # Not `task test:scripts`: the setup action that installs Task leaves
+      # with the Go pack, and this job must work without it.
+      - name: Test workflow scripts
+        run: node --test .github/scripts/*.test.mjs
+
   zizmor:
     name: Audit Workflow Security
     runs-on: ubuntu-latest

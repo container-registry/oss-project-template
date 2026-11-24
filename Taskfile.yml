@@ -43,6 +43,7 @@ tasks:
       - task: lint:actions
       - task: lint:pins
       - task: lint:repo
+      - task: test:scripts
       - task: commit-lint
       - task: dco-check
       - task: build
@@ -67,6 +68,11 @@ tasks:
     desc: Check repository consistency (dangling references, label and release config drift)
     cmds:
       - python3 .github/scripts/repo-lint.py
+
+  test:scripts:
+    desc: Test the workflow scripts in .github/scripts
+    cmds:
+      - node --test .github/scripts/*.test.mjs
 
   lint:pins:
     desc: Check every action is pinned to a full SHA with a version comment
@@ -467,6 +473,7 @@ tasks:
     desc: Install the CLI tools the checks need, at the pinned versions
     cmds:
       - command -v lefthook >/dev/null || brew install lefthook || go install github.com/evilmartians/lefthook@latest
+      - command -v node >/dev/null || brew install node
       - command -v yamllint >/dev/null || pip install "yamllint==${YAMLLINT_VERSION}"
       # repo-lint parses YAML; yamllint pulls PyYAML in, but not necessarily
       # into the interpreter `python3` resolves to.

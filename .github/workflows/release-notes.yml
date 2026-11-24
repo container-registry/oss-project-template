@@ -1,0 +1,42 @@
+---
+name: Release Notes
+
+# What: Puts each pull request's "## Release Notes" section under its entry in a
+#   published release, so a reader sees the note next to the change it explains.
+# Fires on: workflow_call from release-please.yml once a release exists.
+# Needs: contents: write and pull-requests: read from the caller.
+# Safe to delete if: release notes are not taken from pull requests. Also drop
+#   the jobs in release-please.yml that call it, and the release-notes job in pr-title.yml.
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: Release tag whose notes to update
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  inline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # Reads pull request descriptions and edits the release body.
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Put pull request release notes under their entries
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          gh release view "${TAG_NAME}" --json body -q .body > "${RUNNER_TEMP}/body.md"
+          node .github/scripts/release-notes.mjs inline "${RUNNER_TEMP}/body.md" "${GH_REPO}"
+          gh release edit "${TAG_NAME}" --notes-file "${RUNNER_TEMP}/body.md"

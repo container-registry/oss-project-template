@@ -12,11 +12,12 @@ short version of this in a header comment; this is the map.
 | `codeql.yml` | Static analysis of the workflows and the Go code. | public repo, or Advanced Security |
 | `dco.yml` | Fails a pull request whose commits lack a sign-off. | nothing |
 | `scorecard.yml` | OpenSSF Scorecard. Skips on private repositories. | `SCORECARD_TOKEN` to also score branch protection |
-| `pr-title.yml` | Requires a conventional-commit pull request title. | nothing |
+| `pr-title.yml` | Requires a conventional-commit pull request title and checks the `## Release Notes` section of the description. | nothing |
 | `labeler.yml`, `pr-size-labeler.yml` | Label pull requests by path and by size. | nothing |
 | `welcome.yml` | Greets first-time contributors. | nothing |
 | `apply-settings.yml` | Applies `.github/settings.yml`, and checks for drift weekly. | `SETTINGS_TOKEN` |
 | `release-please.yml` | Opens the app and chart release pull requests and triggers publishing. | nothing |
+| `release-notes.yml` | Puts each pull request's release notes under its entry in a published release. | nothing |
 | `release-assets.yml` | Builds, attests and uploads binaries and their SBOM, from the commit the release tag resolves to. | nothing |
 | `chart-ci.yml` | Lints, renders, unit-tests, scans and dry-run packages the Helm chart. Path-filtered, so never a required check. | nothing |
 | `publish-chart.yml` | Packages, pushes, signs and documents the chart for a `chart-v*` release. | nothing for ttl.sh; `CHART_REPOSITORY` and the registry secrets for a real registry |
@@ -47,11 +48,7 @@ short version of this in a header comment; this is the map.
 |------|---------|
 | `.github/scripts/apply-settings.js` | Applies, verifies or drift-checks `settings.yml`. Reads JSON the workflow converts, so it needs no YAML parser |
 | `.github/scripts/repo-lint.py` | Repository consistency checks, also run by `task lint:repo` |
-| `release-please.yml` | Opens the app and chart release pull requests and triggers publishing. | nothing |
-| `release-assets.yml` | Builds, attests and uploads binaries and their SBOM, from the commit the release tag resolves to. | nothing |
-| `chart-ci.yml` | Lints, renders, unit-tests, scans and dry-run packages the Helm chart. Path-filtered, so never a required check. | nothing |
-| `publish-chart.yml` | Packages, pushes, signs and documents the chart for a `chart-v*` release. | nothing for ttl.sh; `CHART_REPOSITORY` and the registry secrets for a real registry |
-| `publish-image.yml` | Builds, pushes, verifies the platform set (`task image:verify`), signs and attests the container image, from the commit the release tag resolves to. | nothing for GHCR |
+| `.github/scripts/release-notes.mjs` | The `## Release Notes` check and the release step that puts notes under their entries; tested by `task test:scripts` |
 
 ## Secrets
 
