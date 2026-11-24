@@ -120,7 +120,8 @@ jobs:
 
   publish-helm-chart:
     needs: [release-please-chart, release-notes-chart]
-    if: ${{ needs.release-please-chart.outputs.release_created == 'true' }}
+    # A failed notes step must not hold back the chart.
+    if: ${{ !cancelled() && needs.release-please-chart.outputs.release_created == 'true' }}
     permissions:
       # A reusable workflow is capped by the caller's grant; the publish job
       # needs contents: write for `gh release edit`.
@@ -141,7 +142,8 @@ jobs:
     # publish-release-assets too: the body it writes tells people to verify
     # app-linux-amd64 and checksums.txt, which that job uploads.
     needs: [release-please, release-notes, publish-image, publish-release-assets]
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    # A failed notes step must not hold back the rest.
+    if: ${{ !cancelled() && needs.release-please.outputs.release_created == 'true' && needs.publish-image.result == 'success' && needs.publish-release-assets.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

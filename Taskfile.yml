@@ -473,6 +473,7 @@ tasks:
     desc: Install the CLI tools the checks need, at the pinned versions
     cmds:
       - command -v lefthook >/dev/null || brew install lefthook || go install github.com/evilmartians/lefthook@latest
+      - command -v node >/dev/null || brew install node
       - command -v yamllint >/dev/null || pip install "yamllint==${YAMLLINT_VERSION}"
       # repo-lint parses YAML; yamllint pulls PyYAML in, but not necessarily
       # into the interpreter `python3` resolves to.

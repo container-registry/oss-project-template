@@ -103,10 +103,10 @@ one of these holds:
 Otherwise write `N/A`: internal fixes without a visible symptom, refactors, plumbing, dependency bumps
 without a CVE, and bugs that never shipped in a release.
 
-**Rules** (the `PR Release Notes` check enforces them):
+**Rules** (the `Release Notes` job of the PR Title workflow enforces them):
 
 - `feat:` and `fix:` pull requests need the section; its content is the notes or `N/A`. Breaking changes
-  (`feat!:`, `fix!:`) need notes
+  (any type with `!`, such as `feat!:`) need notes
 - At most 550 characters as rendered; link targets, images and Markdown markers do not count. Put details in
   the docs and link to them
 - Last section of the description, with no headings inside. Any heading ends the section, so `### Tests`

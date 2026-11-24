@@ -22,7 +22,7 @@ Never inline a build or test command into a workflow. Add it to `Taskfile.yml` a
   release-please parses. Get the title right; individual commit subjects matter much less.
 - `feat:` and `fix:` drive the version. See `docs/RELEASES.md`.
 - `feat:` and `fix:` pull requests end the description with a `## Release Notes` section: notes when users
-  are affected, otherwise `N/A`. At most 550 rendered characters, no headings, no alert boxes. It is shown
+  are affected, otherwise `N/A`; a breaking (`!`) pull request always needs notes. At most 550 rendered characters, no headings, no alert boxes. It is shown
   under the pull request's entry in the release; criteria in `CONTRIBUTING.md`, "Release Notes".
 <!-- pack:chart:start -->
 - Two release lines: the app (`vX.Y.Z`) and the chart in `deploy/chart` (`chart-vX.Y.Z`), each with its own

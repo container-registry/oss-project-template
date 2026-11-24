@@ -64,6 +64,26 @@ jobs:
   # title substring, so subject text mentioning "(chart):" cannot trigger it.
   # dorny/paths-filter lists the changed files through the API and needs no
   # checkout, which is what keeps this safe under pull_request_target.
+  release-notes:
+    name: Release Notes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      # Fetched at the base commit, never checked out: a pull request must not
+      # change the rule it is judged by.
+      - name: Check the release notes section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/contents/.github/scripts/release-notes.mjs?ref=${BASE_SHA}" \
+            -H 'Accept: application/vnd.github.raw' > "${RUNNER_TEMP}/release-notes.mjs"
+          node "${RUNNER_TEMP}/release-notes.mjs" check
+
   chart-scope-paths:
     name: Chart Scope Paths
     needs: lint
