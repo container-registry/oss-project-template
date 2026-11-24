@@ -49,7 +49,7 @@ test('rejects alert boxes and long notes', () => {
 });
 
 test('rendered length skips markup', () => {
-  assert.equal(renderedLength('**a** *b* ~~c~~ _d_ `e_f` [g](https://x.test)'), 'a b c d e_f g'.length);
+  assert.equal(renderedLength('**a** *b* ~~c~~ _d_ `e_f` [g](https://x.test) <b>h</b>'), 'a b c d e_f g h'.length);
 });
 
 const repo = 'acme/widget';

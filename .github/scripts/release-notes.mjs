@@ -56,11 +56,26 @@ export function parseReleaseNotes(body) {
   return { found: true, notApplicable, text: notApplicable ? '' : text, trailingHeading: lines[end]?.trim() };
 }
 
+function withoutTags(text) {
+  let result = '';
+  let inTag = false;
+  for (const char of text) {
+    if (char === '<') {
+      inTag = true;
+    } else if (char === '>' && inTag) {
+      inTag = false;
+    } else if (!inTag) {
+      result += char;
+    }
+  }
+  return result;
+}
+
+// Only counts; the text itself is published unchanged.
 export function renderedLength(text) {
-  return text
+  return withoutTags(text)
     .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/<[^>]+>/g, '')
     .replace(/^ {0,3}(?:`{3,}|~{3,}).*$/gm, '')
     .replace(/^\s*(?:[-*+]|\d+[.)]|>)\s+/gm, '')
     .replace(/[`*]|~~/g, '')
