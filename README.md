@@ -10,7 +10,7 @@
 Repository configuration and automation for small open-source projects that want the engineering hygiene of a
 large one without a platform team. It is the template behind the
 [container-registry](https://github.com/container-registry) projects, among them
-[8gcr](https://github.com/container-registry/8gcr) and the goharbor
+[8gcr](https://github.com/container-registry/container-registry) and the goharbor
 [Trivy scanner adapter](https://github.com/goharbor/harbor-scanner-trivy), so every gate in it is exercised by
 real pull requests rather than hypothetical ones.
 
